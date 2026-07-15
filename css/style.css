@@ -21,3 +21,30 @@ body {
   height: 100dvh;
   touch-action: none;
 }
+
+#rotate-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  background: #000000;
+  color: #ffffff;
+  font-family: 'Courier New', monospace;
+  font-size: 1.1rem;
+}
+
+/* Le jeu est prévu en paysage uniquement : en portrait, on masque le canvas
+   et on invite le joueur à tourner son téléphone. */
+@media (orientation: portrait) {
+  #rotate-overlay {
+    display: flex;
+  }
+
+  #game {
+    display: none;
+  }
+}

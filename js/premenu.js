@@ -331,9 +331,21 @@ function updateLaurenControlled(dt) {
     return;
   }
 
-  lauren.facing = laurenControl.direction < 0 ? 'left' : 'right';
   const nextX = lauren.x + laurenControl.direction * CHARACTER_WALK_SPEED * dt;
-  lauren.x = Math.max(LAUREN_TARGET_X, Math.min(LAUREN_READY_X, nextX));
+  const clampedX = Math.max(LAUREN_TARGET_X, Math.min(LAUREN_READY_X, nextX));
+
+  // Bloquée contre une limite (bord d'écran ou bouton) : pas de vrai
+  // déplacement, donc pas de marche ni de bruit de pas, même si une flèche
+  // reste maintenue.
+  if (clampedX === lauren.x) {
+    lauren.walking = false;
+    lauren.frameIndex = 0;
+    lauren.frameElapsed = 0;
+    return;
+  }
+
+  lauren.facing = laurenControl.direction < 0 ? 'left' : 'right';
+  lauren.x = clampedX;
   lauren.walking = true;
 
   lauren.frameElapsed += dt * 1000;

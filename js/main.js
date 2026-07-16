@@ -4,7 +4,7 @@ Promise.all([
   loadImage('Assets/Menu/Fond.png'),
   loadImage('Assets/Menu/Titre.png'),
   loadImage('Assets/Menu/Nuages.png'),
-  loadImage('Assets/Menu/Bouton.png'),
+  loadImage('Assets/Jeu/Quiz/Boutons/Réponse.png'),
   loadImage('Assets/PreMenu/Fond.png'),
   loadImage('Assets/PreMenu/BoutonBleu/Bleu.png'),
   loadImage('Assets/PreMenu/BoutonBleu/BleuEnfoncé.png'),
@@ -18,11 +18,20 @@ Promise.all([
   loadImage('Assets/Persos/Lauren/Côté/Walk/9.png'),
   loadImage('Assets/Persos/Lauren/Côté/Walk/10.png'),
   loadImage('Assets/Persos/Lauren/Côté/Walk/11.png'),
+  loadImage('Assets/Persos/Lauren/Côté/Activer le bouton/1.png'),
+  loadImage('Assets/Persos/Lauren/Côté/Activer le bouton/2.png'),
   loadImage('Assets/Persos/Loïs/Côté/Idle/Idle.png'),
   loadImage('Assets/Persos/Loïs/Côté/Walk/18.png'),
   loadImage('Assets/Persos/Loïs/Côté/Walk/19.png'),
   loadImage('Assets/Persos/Loïs/Côté/Walk/20.png'),
   loadImage('Assets/Persos/Loïs/Côté/Walk/21.png'),
+  loadImage('Assets/Persos/Loïs/Côté/Activer le bouton/1.png'),
+  loadImage('Assets/Persos/Loïs/Côté/Activer le bouton/2.png'),
+  loadImage('Assets/PreMenu/Télé/1.Statique légère.png'),
+  loadImage('Assets/PreMenu/Télé/2.Statique dense.png'),
+  loadImage('Assets/PreMenu/Télé/3.Flash faible.png'),
+  loadImage('Assets/PreMenu/Télé/4.Flash fort.png'),
+  loadImage('Assets/PreMenu/Télé/5.Retour au calme.png'),
 ])
   .then(([
     menuFond, menuTitre, nuagesImg, menuBouton,
@@ -31,8 +40,11 @@ Promise.all([
     roseIdle, rosePressed, roseActivated,
     laurenIdle,
     laurenWalk6, laurenWalk7, laurenWalk9, laurenWalk10, laurenWalk11,
+    laurenPress1, laurenPress2,
     loisIdle,
     loisWalk18, loisWalk19, loisWalk20, loisWalk21,
+    loisPress1, loisPress2,
+    tvStaticLight, tvStaticDense, tvFlashWeak, tvFlashStrong, tvCalm,
   ]) => {
     createClouds(nuagesImg);
 
@@ -43,8 +55,11 @@ Promise.all([
       menuFond, menuTitre, menuBouton, preMenuFond,
       laurenIdle,
       laurenWalk: [laurenWalk6, laurenWalk7, laurenWalk9, laurenWalk10, laurenWalk11],
+      laurenPress: [laurenPress1, laurenPress2],
       loisIdle,
       loisWalk: [loisWalk18, loisWalk19, loisWalk20, loisWalk21],
+      loisPress: [loisPress1, loisPress2],
+      tvFrames: [tvStaticLight, tvStaticDense, tvFlashWeak, tvFlashStrong, tvCalm],
     };
     requestAnimationFrame((ts) => loop(ts, assets));
   })

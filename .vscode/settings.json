@@ -1,0 +1,16 @@
+{
+  // Ne pas surveiller en continu les gros dossiers binaires : gros gain de réactivité.
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/Assets/**": true
+  },
+  // Ne pas indexer les assets/.git dans la recherche globale.
+  "search.exclude": {
+    "**/.git/**": true,
+    "**/Assets/**": true
+  },
+  // Couper la synchronisation Git de fond avec GitHub.
+  "git.autofetch": false,
+  "git.autorefresh": false
+}

@@ -93,7 +93,11 @@ function loop(timestamp, assets) {
   const dt = lastTimestamp ? (timestamp - lastTimestamp) / 1000 : 0;
   lastTimestamp = timestamp;
 
-  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  // Fond noir (pas juste un clear) : les bordures autour des images en
+  // "contain" (qui ne remplissent pas toujours tout l'écran) restent noires
+  // quel que soit le fond CSS de la page.
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
   if (scene === 'premenu') {
     drawPreMenuScene(assets, dt);

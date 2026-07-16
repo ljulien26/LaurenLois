@@ -1,5 +1,5 @@
 // ============================================================
-// Scène Menu : fond, nuages animés, titre, bouton "Commencer l'aventure".
+// Scène Menu : fond, nuages animés, titre, bouton "Démarrer l'aventure".
 // ============================================================
 
 // ---------- Nuages animés (découpés dans Nuages.png, vrais nuages transparents) ----------
@@ -125,7 +125,7 @@ function easeOutElastic(t) {
   return 1 + (raw - 1) * 0.45;
 }
 
-// Utilisé par le bouton "Commencer l'aventure" plus bas.
+// Utilisé par le bouton "Démarrer l'aventure" plus bas.
 function easeOutBack(t) {
   const c1 = 1.70158;
   const c3 = c1 + 1;
@@ -161,17 +161,31 @@ function drawTitle(img, elapsed) {
   ctx.restore();
 }
 
-// ---------- Bouton "Commencer l'aventure" (Assets/Menu/Bouton.png) ----------
+// ---------- Bouton "Démarrer l'aventure" (Assets/Jeu/Quiz/Boutons/Réponse.png) ----------
 
-// Boîte englobante réelle du bouton dans Bouton.png (960x540, fond transparent).
-const BUTTON_SOURCE_RECT = { x: 193, y: 209, w: 597, h: 117 };
+// Bouton vierge (pilule, sans texte), aspect natif ≈ 1349x255.
+const BUTTON_TEXT = "Démarrer l'aventure";
+const BUTTON_ASPECT = 255 / 1349;
 
-const BUTTON_DELAY = TITLE_DELAY + TITLE_ZOOM_DURATION + 600; // laisse le titre bien se poser avant d'apparaître
+const BUTTON_DELAY = TITLE_DELAY + TITLE_ZOOM_DURATION + 350; // laisse le titre bien se poser avant d'apparaître
 const BUTTON_ENTER_DURATION = 700;
 
 let buttonRect = null; // { x, y, w, h } en CSS px, recalculé chaque frame pour le hit-test
 let buttonPressed = false;
 let buttonHover = false;
+
+// Ajuste la taille de police pour que BUTTON_TEXT tienne dans la largeur du
+// bouton (la police pixel Press Start 2P est large par caractère).
+function fitButtonFontSize(text, maxWidth, startSize) {
+  let fontSize = startSize;
+  ctx.font = `${fontSize}px 'PressStart2P'`;
+  const textWidth = ctx.measureText(text).width;
+  if (textWidth > maxWidth) {
+    fontSize *= maxWidth / textWidth;
+    ctx.font = `${fontSize}px 'PressStart2P'`;
+  }
+  return fontSize;
+}
 
 function drawStartButton(img, elapsed) {
   const t = Math.min(Math.max((elapsed - BUTTON_DELAY) / BUTTON_ENTER_DURATION, 0), 1);
@@ -181,7 +195,7 @@ function drawStartButton(img, elapsed) {
   }
 
   const w = Math.min(window.innerWidth * 0.58, 340);
-  const h = w * (BUTTON_SOURCE_RECT.h / BUTTON_SOURCE_RECT.w);
+  const h = w * BUTTON_ASPECT;
   const x = window.innerWidth / 2 - w / 2;
   const y = window.innerHeight * 0.76 - h / 2;
   buttonRect = { x, y, w, h };
@@ -200,14 +214,16 @@ function drawStartButton(img, elapsed) {
   ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
   ctx.shadowBlur = 12;
   ctx.shadowOffsetY = 6;
-  ctx.drawImage(
-    img,
-    BUTTON_SOURCE_RECT.x, BUTTON_SOURCE_RECT.y, BUTTON_SOURCE_RECT.w, BUTTON_SOURCE_RECT.h,
-    0, 0, w, h
-  );
+  ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, w, h);
+  ctx.shadowColor = 'transparent';
+
+  const fontSize = fitButtonFontSize(BUTTON_TEXT, w * 0.82, h * 0.32);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillText(BUTTON_TEXT, w / 2, h / 2 + fontSize * 0.08);
 
   if (buttonPressed) {
-    ctx.shadowColor = 'transparent';
     ctx.globalCompositeOperation = 'source-atop';
     ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
     ctx.fillRect(0, 0, w, h);
@@ -240,7 +256,7 @@ canvas.addEventListener('pointerup', (evt) => {
   if (scene !== 'menu') return;
   if (buttonPressed && isInsideButton(getPointerPos(evt))) {
     // TODO : lancer la séquence d'ouverture (Loïs / Lauren) une fois les assets prêts
-    console.log("Commencer l'aventure");
+    console.log("Démarrer l'aventure");
   }
   buttonPressed = false;
 });

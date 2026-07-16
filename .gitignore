@@ -1,0 +1,10 @@
+# Fichiers générés par le système / l'explorateur Windows & macOS
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
+
+# Fichiers temporaires d'édition d'images / d'audio
+*.tmp
+*.bak
+*~

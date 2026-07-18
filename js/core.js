@@ -74,6 +74,16 @@ function drawBackgroundContain(img, t) {
   ctx.drawImage(img, 0, 0, img.width, img.height, t.dx, t.dy, t.dw, t.dh);
 }
 
+// ---------- Échelle de l'interface ----------
+// Vaut 1 sur un écran "normal" (>= 1280x720, typiquement un ordinateur) : les
+// tailles fixes en pixels y restent identiques. Sur un petit écran (téléphone
+// en paysage), le facteur descend en dessous de 1 et réduit proportionnellement
+// les éléments d'UI, pour garder la même disposition qu'au bureau (sinon les
+// pixels fixes paraissent énormes sur le petit écran).
+function uiSizeFactor() {
+  return Math.min(1, window.innerWidth / 1280, window.innerHeight / 720);
+}
+
 // ---------- Entrées tactiles/souris ----------
 
 function getPointerPos(evt) {

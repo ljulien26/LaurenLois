@@ -149,15 +149,15 @@ function wrapPixelText(text, maxWidth, fontPx) {
 }
 
 function place2QuestionPanelRect() {
-  const w = Math.min(window.innerWidth * 0.7, 560);
+  const w = Math.min(window.innerWidth * 0.7, 560) * uiSizeFactor();
   const h = w / (1717 / 916);
   return { x: window.innerWidth / 2 - w / 2, y: window.innerHeight * 0.05, w, h };
 }
 
 // Taille des pilules de réponse (un peu plus petites que celles des indices,
-// pour tenir en grille 2x2).
+// pour tenir en grille 2x2). Réduites sur petit écran comme le reste de l'UI.
 function place2PillSize() {
-  const w = Math.min(window.innerWidth * 0.4, 270);
+  const w = Math.min(window.innerWidth * 0.4, 270) * uiSizeFactor();
   return { w, h: w / (1349 / 255) };
 }
 

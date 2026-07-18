@@ -419,13 +419,13 @@ function pointInRect(pos, r) {
 }
 
 function hintPanelRect() {
-  const w = Math.min(window.innerWidth * 0.82, 640);
+  const w = Math.min(window.innerWidth * 0.82, 640) * uiSizeFactor();
   const h = w / PANEL_ASPECT;
   return { x: window.innerWidth / 2 - w / 2, y: window.innerHeight * 0.4 - h / 2, w, h };
 }
 
 function pillSize() {
-  const w = Math.min(window.innerWidth * 0.42, 300);
+  const w = Math.min(window.innerWidth * 0.42, 300) * uiSizeFactor();
   return { w, h: w / PILL_ASPECT };
 }
 
@@ -459,7 +459,7 @@ function hintViewerButtons() {
 
 // Bouton permanent en bas à gauche pour reconsulter les indices débloqués.
 function hintAccessButton() {
-  const w = Math.min(window.innerWidth * 0.34, 220);
+  const w = Math.min(window.innerWidth * 0.34, 220) * uiSizeFactor();
   const h = w / PILL_ASPECT;
   return { x: window.innerWidth * 0.04, y: window.innerHeight * 0.9 - h / 2, w, h };
 }

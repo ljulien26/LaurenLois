@@ -60,7 +60,9 @@ class CloudLayer {
   randomCandidate(initial) {
     const sprite = this.sprites[Math.floor(Math.random() * this.sprites.length)];
     const depth = Math.random(); // 0 = lointain/petit/lent, 1 = proche/grand/rapide
-    const scale = CLOUD_SCALE_MIN + depth * (CLOUD_SCALE_MAX - CLOUD_SCALE_MIN);
+    // Les nuages sont dimensionnés en pixels absolus : on les réduit sur petit
+    // écran (via uiSizeFactor) pour qu'ils restent proportionnés comme au bureau.
+    const scale = (CLOUD_SCALE_MIN + depth * (CLOUD_SCALE_MAX - CLOUD_SCALE_MIN)) * uiSizeFactor();
     const w = sprite.width * scale;
     const h = sprite.height * scale;
     const y = (SKY_BAND_TOP + Math.random() * (SKY_BAND_BOTTOM - SKY_BAND_TOP)) * window.innerHeight;
@@ -194,7 +196,7 @@ function drawStartButton(img, elapsed) {
     return;
   }
 
-  const w = Math.min(window.innerWidth * 0.58, 340);
+  const w = Math.min(window.innerWidth * 0.58, 340) * uiSizeFactor();
   const h = w * BUTTON_ASPECT;
   const x = window.innerWidth / 2 - w / 2;
   const y = window.innerHeight * 0.76 - h / 2;

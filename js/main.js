@@ -34,11 +34,22 @@ Promise.all([
   loadImage('Assets/PreMenu/Télé/5.Retour au calme.png'),
   loadImage('Assets/Jeu/Places/1.png'),
   loadImage('Assets/Jeu/Places/2.png'),
+  loadImage('Assets/Jeu/Places/3.png'), // Saint-Sernin
+  loadImage('Assets/Jeu/Places/4.png'), // Cinéma Pathé (façade)
+  loadImage('Assets/Jeu/Places/5.png'), // Cinéma Pathé (intérieur)
   loadImage('Assets/Jeu/Cadenas/1.png'),
   loadImage('Assets/Jeu/Cadenas/2.png'),
   loadImage('Assets/Jeu/Quiz/Boutons/Question.png'),
   loadImage('Assets/Jeu/Quiz/Boutons/Bonne réponse.png'),
   loadImage('Assets/Jeu/Quiz/Boutons/Mauvaise réponse.png'),
+  // Mini-jeu de la pluie de chats : Lauren avec panier + chatons.
+  loadImage('Assets/Persos/Lauren/Côté/WalkPanier/26.png'),
+  loadImage('Assets/Persos/Lauren/Côté/WalkPanier/27.png'),
+  loadImage('Assets/Persos/Lauren/Côté/WalkPanier/28.png'),
+  loadImage('Assets/Persos/Lauren/Côté/WalkPanier/29.png'),
+  loadImage('Assets/Jeu/Chat/Chat 1.png'),
+  loadImage('Assets/Jeu/Chat/Chat 2.png'),
+  loadImage('Assets/Jeu/Chat/Chat 3.png'),
 ])
   .then(([
     menuFond, menuTitre, nuagesImg, menuBouton,
@@ -52,8 +63,10 @@ Promise.all([
     loisWalk18, loisWalk19, loisWalk20, loisWalk21,
     loisPress1, loisPress2,
     tvStaticLight, tvStaticDense, tvFlashWeak, tvFlashStrong, tvCalm,
-    placeFond, place2Fond, cadenasClosed, cadenasOpen1,
+    placeFond, place2Fond, place3Fond, place4Fond, place5Fond, cadenasClosed, cadenasOpen1,
     quizPanel, quizGood, quizBad,
+    basket26, basket27, basket28, basket29,
+    cat1, cat2, cat3,
   ]) => {
     createClouds(nuagesImg);
 
@@ -62,6 +75,9 @@ Promise.all([
 
     const assets = {
       menuFond, menuTitre, menuBouton, preMenuFond, placeFond, place2Fond,
+      place3Fond, place4Fond, place5Fond,
+      laurenBasket: [basket26, basket27, basket28, basket29],
+      cats: [cat1, cat2, cat3],
       cadenasFrames: [cadenasClosed, cadenasOpen1],
       quizPanel, quizGood, quizBad,
       laurenIdle,

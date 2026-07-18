@@ -37,6 +37,13 @@ function loadImage(src) {
   });
 }
 
+// Comme loadImage, mais un fichier absent ne fait pas planter le jeu : la
+// promesse se résout à null (la scène concernée dessine alors un fond de
+// secours). Utile pour des décors dont l'image n'est pas encore fournie.
+function loadImageOptional(src) {
+  return loadImage(src).catch(() => null);
+}
+
 // ---------- Fond en "cover" (comme background-size: cover) ----------
 
 // Rectangle source à prélever dans une image (imgW x imgH) pour remplir une
@@ -72,6 +79,41 @@ function getContainTransform(imgW, imgH, viewW, viewH) {
 
 function drawBackgroundContain(img, t) {
   ctx.drawImage(img, 0, 0, img.width, img.height, t.dx, t.dy, t.dw, t.dh);
+}
+
+// Découpe un texte en lignes tenant dans maxWidth, en police PressStart2P, et
+// réduit la taille tant qu'il dépasse 3 lignes. Renvoie { lines, fs }.
+function wrapPixelQuestion(text, maxWidth, startSize) {
+  let fs = startSize;
+  const words = text.split(' ');
+  const build = () => {
+    ctx.font = `${fs}px 'PressStart2P'`;
+    const lines = [];
+    let cur = '';
+    for (const w of words) {
+      const t = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(t).width > maxWidth && cur) { lines.push(cur); cur = w; }
+      else cur = t;
+    }
+    if (cur) lines.push(cur);
+    return lines;
+  };
+  let lines = build();
+  while (lines.length > 3 && fs > 6) { fs *= 0.92; lines = build(); }
+  return { lines, fs };
+}
+
+// Trace un rectangle à coins arrondis dans le chemin courant (à remplir /
+// tracer / découper ensuite par l'appelant).
+function roundRectPath(x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 // ---------- Échelle de l'interface ----------
@@ -110,6 +152,17 @@ window.addEventListener('keydown', (e) => {
   }
 });
 window.addEventListener('keyup', (e) => heldKeys.delete(e.key.toLowerCase()));
+
+// --- DEBUG (à retirer pour la version finale) : Maj+3/4/5/6 sautent
+// directement à Saint-Sernin / Cinéma façade / Cinéma intérieur / pluie de
+// chats, pour tester vite. ---
+window.addEventListener('keydown', (e) => {
+  if (!e.shiftKey) return;
+  if (e.code === 'Digit3') { place3Reset(); scene = 'place3'; startTime = null; }
+  else if (e.code === 'Digit4') { place4Reset(); scene = 'place4'; startTime = null; }
+  else if (e.code === 'Digit5') { place5Reset(); scene = 'place5'; startTime = null; }
+  else if (e.code === 'Digit6') { catGameReset(); scene = 'catgame'; startTime = null; }
+});
 
 // Indice discret rappelant que le déplacement se fait au clavier. Affiché en
 // bas de l'écran tant que le joueur contrôle un personnage. S'estompe dès
@@ -164,7 +217,9 @@ function unlockAudio() {
 }
 
 // ---------- Boucle de jeu ----------
-// Scènes : 'premenu' -> 'tvOn' -> 'blackout' -> 'menu' -> 'place'
+// Scènes : premenu -> tvOn -> blackout -> menu -> place -> place2 (café)
+//   -> place3 (Saint-Sernin) -> place4 (Cinéma façade) -> place5 (Cinéma
+//   intérieur) -> catgame (pluie de chats)
 // Chaque scène est dessinée par une fonction définie dans son propre fichier
 // (premenu.js, menu.js, place.js, ...).
 
@@ -196,6 +251,14 @@ function loop(timestamp, assets) {
     drawPlaceScene(assets, elapsed, dt);
   } else if (scene === 'place2') {
     drawPlace2Scene(assets, elapsed, dt);
+  } else if (scene === 'place3') {
+    drawPlace3Scene(assets, elapsed, dt);
+  } else if (scene === 'place4') {
+    drawPlace4Scene(assets, elapsed, dt);
+  } else if (scene === 'place5') {
+    drawPlace5Scene(assets, elapsed, dt);
+  } else if (scene === 'catgame') {
+    drawCatGameScene(assets, elapsed, dt);
   }
 
   requestAnimationFrame((ts) => loop(ts, assets));

@@ -353,7 +353,7 @@ function drawPlace2Scene(assets, elapsed, dt) {
     ctx.restore();
   }
 
-  // Fondu de sortie vers le prochain décor (à venir).
+  // Fondu de sortie, puis bascule vers le décor 3 (Saint-Sernin).
   if (place2Phase === 'exit') {
     const t = Math.min((performance.now() - place2ExitStart) / PLACE2_EXIT_FADE, 1);
     ctx.save();
@@ -361,6 +361,11 @@ function drawPlace2Scene(assets, elapsed, dt) {
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
     ctx.restore();
-    // TODO : enchaîner sur le décor 3 quand il sera fourni.
+    if (t >= 1) {
+      place2Phase = 'done';
+      place3Reset();
+      scene = 'place3';
+      startTime = null;
+    }
   }
 }

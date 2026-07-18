@@ -3,14 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#e97fae">
+<meta name="theme-color" content="#000000">
 <title>Lauren &amp; Loïs</title>
+
+<!-- Installable "comme une appli" (écran d'accueil, plein écran) -->
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Lauren & Loïs">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <canvas id="game"></canvas>
 <div id="rotate-overlay">Tourne ton téléphone pour jouer 🔄</div>
+
+<script>
+  // Enregistre le service worker (fonctionnement hors-ligne + appli installable).
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
 
 <script src="js/core.js" defer></script>
 <script src="js/character.js" defer></script>

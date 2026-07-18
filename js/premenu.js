@@ -65,22 +65,10 @@ function drawBothCharacters(assets, containT) {
   drawCharacter(lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress);
 }
 
-// ---------- Contrôle de Lauren par le joueur ----------
-// Une fois arrivée, Lauren n'est pas un bot : deux boutons fléchés visibles
-// en bas de l'écran, à maintenir enfoncés, la font marcher (relâcher l'arrête
-// net). Rien ne se déclenche sans que le joueur maintienne un bouton.
-
-const ARROW_BUTTON_RADIUS_RATIO = 0.058; // relatif à la plus petite dimension de l'écran (plus gros)
-const ARROW_BUTTON_MARGIN_RATIO = 0.16;  // relatif à la largeur de l'écran (plus rapprochés du centre)
-const ARROW_BUTTON_BOTTOM_RATIO = 0.85;  // relatif à la hauteur de l'écran (un peu réhaussés)
-
-function getArrowButtonCircle(side) {
-  const radius = Math.min(window.innerWidth, window.innerHeight) * ARROW_BUTTON_RADIUS_RATIO;
-  const margin = window.innerWidth * ARROW_BUTTON_MARGIN_RATIO;
-  const cx = side === 'left' ? margin + radius : window.innerWidth - margin - radius;
-  const cy = window.innerHeight * ARROW_BUTTON_BOTTOM_RATIO;
-  return { cx, cy, radius };
-}
+// ---------- Contrôle de Lauren par le joueur (clavier) ----------
+// Une fois arrivée, Lauren n'est pas un bot : les flèches ← → du clavier la
+// font marcher (relâcher la touche l'arrête net). Rien ne se déclenche tant
+// que le joueur n'appuie pas sur une touche.
 
 function isInsideCircle(pos, circle) {
   const dx = pos.x - circle.cx;
@@ -88,52 +76,17 @@ function isInsideCircle(pos, circle) {
   return dx * dx + dy * dy <= circle.radius * circle.radius;
 }
 
-function drawArrowButton(side, pressed) {
-  const circle = getArrowButtonCircle(side);
-
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(circle.cx, circle.cy, circle.radius, 0, Math.PI * 2);
-  ctx.fillStyle = pressed ? 'rgba(255, 255, 255, 0.35)' : 'rgba(255, 255, 255, 0.15)';
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-  ctx.stroke();
-
-  const a = circle.radius * 0.5;
-  ctx.beginPath();
-  if (side === 'left') {
-    ctx.moveTo(circle.cx + a * 0.5, circle.cy - a);
-    ctx.lineTo(circle.cx - a * 0.6, circle.cy);
-    ctx.lineTo(circle.cx + a * 0.5, circle.cy + a);
-  } else {
-    ctx.moveTo(circle.cx - a * 0.5, circle.cy - a);
-    ctx.lineTo(circle.cx + a * 0.6, circle.cy);
-    ctx.lineTo(circle.cx - a * 0.5, circle.cy + a);
-  }
-  ctx.closePath();
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawLaurenControls() {
-  drawArrowButton('left', laurenControl.direction === -1);
-  drawArrowButton('right', laurenControl.direction === 1);
-}
-
-const laurenControl = { direction: 0 }; // -1 = gauche, 0 = immobile, 1 = droite
-let laurenControlPointerId = null; // pointer actif sur un bouton fléché, pour ignorer les autres doigts
-
 function updateLaurenControlled(dt) {
-  if (laurenControl.direction === 0) {
+  const dir = keyDirection();
+
+  if (dir === 0) {
     lauren.walking = false;
     lauren.frameIndex = 0;
     lauren.frameElapsed = 0;
     return;
   }
 
-  const nextX = lauren.x + laurenControl.direction * CHARACTER_WALK_SPEED * dt;
+  const nextX = lauren.x + dir * CHARACTER_WALK_SPEED * dt;
   const clampedX = Math.max(LAUREN_TARGET_X, Math.min(LAUREN_READY_X, nextX));
 
   // Bloquée contre une limite (bord d'écran ou bouton) : pas de vrai
@@ -146,7 +99,7 @@ function updateLaurenControlled(dt) {
     return;
   }
 
-  lauren.facing = laurenControl.direction < 0 ? 'left' : 'right';
+  lauren.facing = dir < 0 ? 'left' : 'right';
   lauren.x = clampedX;
   lauren.walking = true;
 
@@ -266,17 +219,6 @@ function handlePreMenuDown(evt) {
 
   const pos = getPointerPos(evt);
 
-  if (isInsideCircle(pos, getArrowButtonCircle('left'))) {
-    laurenControl.direction = -1;
-    laurenControlPointerId = evt.pointerId;
-    return;
-  }
-  if (isInsideCircle(pos, getArrowButtonCircle('right'))) {
-    laurenControl.direction = 1;
-    laurenControlPointerId = evt.pointerId;
-    return;
-  }
-
   // Clic sur le bouton rose : il faut que Lauren soit venue assez près ET
   // qu'elle regarde vers le bouton (à sa gauche). Dos tourné, elle ne peut
   // pas appuyer : au joueur de la réorienter avec la flèche gauche.
@@ -286,8 +228,6 @@ function handlePreMenuDown(evt) {
   const facesRose = lauren.facing === 'left';
 
   if (isInsideCircle(pos, roseCircle) && isNearRose && facesRose) {
-    laurenControl.direction = 0;
-    laurenControlPointerId = null;
     preMenuButtons.rose.state = 'pressed';
     playButtonSound();
     startPressing(lauren);
@@ -296,23 +236,8 @@ function handlePreMenuDown(evt) {
   }
 }
 
-function handlePreMenuUp(evt) {
-  if (evt.pointerId === laurenControlPointerId) {
-    laurenControl.direction = 0;
-    laurenControlPointerId = null;
-  }
-}
-
 canvas.addEventListener('pointerdown', (evt) => {
   if (scene === 'premenu') handlePreMenuDown(evt);
-});
-
-canvas.addEventListener('pointerup', (evt) => {
-  if (scene === 'premenu') handlePreMenuUp(evt);
-});
-
-canvas.addEventListener('pointercancel', (evt) => {
-  if (scene === 'premenu') handlePreMenuUp(evt);
 });
 
 // Invite discrète, affichée uniquement tant qu'on attend le premier tap
@@ -325,7 +250,7 @@ function drawTapToStartHint() {
   ctx.font = `${Math.round(window.innerHeight * 0.028)}px 'Courier New', monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Touchez l’écran pour commencer', window.innerWidth / 2, window.innerHeight / 2);
+  ctx.fillText('Cliquez pour commencer', window.innerWidth / 2, window.innerHeight / 2);
   ctx.restore();
 }
 
@@ -365,7 +290,7 @@ function drawPreMenuScene(assets, dt) {
   updatePreMenuActors(dt);
   drawBothCharacters(assets, containT);
   if (preMenuStage === STAGE_LAUREN_CONTROLLABLE) {
-    drawLaurenControls();
+    drawKeyboardMoveHint();
   }
   drawLightUpOverlay();
 }

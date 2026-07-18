@@ -157,8 +157,6 @@ const PLACE_LOCK_Y = 335;
 const PLACE_LOCK_RADIUS = 70;  // rayon cliquable, en coords 1.png
 const PLACE_LOCK_REACH = 170;  // distance max (en x) à laquelle Lauren peut l'atteindre
 
-const placeControl = { direction: 0 };
-let placeControlPointerId = null;
 let placeEntered = false; // passe à true une fois l'entrée terminée ⇒ jouable
 
 function getPlaceLockScreen(containT) {
@@ -200,8 +198,9 @@ function updatePlaceLauren(dt) {
     return;
   }
 
-  // Jouable : déplacement tant qu'une flèche est maintenue.
-  if (placeControl.direction === 0) {
+  // Jouable : déplacement tant qu'une flèche du clavier est maintenue.
+  const dir = keyDirection();
+  if (dir === 0) {
     placeLauren.walking = false;
     placeLauren.frameIndex = 0;
     placeLauren.frameElapsed = 0;
@@ -209,7 +208,7 @@ function updatePlaceLauren(dt) {
     return;
   }
 
-  const nextX = placeLauren.x + placeControl.direction * CHARACTER_WALK_SPEED * dt;
+  const nextX = placeLauren.x + dir * CHARACTER_WALK_SPEED * dt;
   const clampedX = Math.max(PLACE_LAUREN_MIN_X, Math.min(PLACE_LAUREN_MAX_X, nextX));
   if (clampedX === placeLauren.x) {
     placeLauren.walking = false;
@@ -218,7 +217,7 @@ function updatePlaceLauren(dt) {
     updateWalkSound(dt, false);
     return;
   }
-  placeLauren.facing = placeControl.direction < 0 ? 'left' : 'right';
+  placeLauren.facing = dir < 0 ? 'left' : 'right';
   placeLauren.x = clampedX;
   placeLauren.walking = true;
   placeLauren.frameElapsed += dt * 1000;
@@ -229,11 +228,6 @@ function updatePlaceLauren(dt) {
   updateWalkSound(dt, true);
 }
 
-function drawPlaceControls() {
-  drawArrowButton('left', placeControl.direction === -1);
-  drawArrowButton('right', placeControl.direction === 1);
-}
-
 // Lauren entre en marchant jusqu'à sa position d'arrêt dès l'arrivée en scène.
 characterWalkTo(placeLauren, PLACE_LAUREN_READY_X);
 
@@ -241,25 +235,12 @@ function handlePlaceDown(evt) {
   if (lockActive || !placeEntered) return;
   const pos = getPointerPos(evt);
 
-  if (isInsideCircle(pos, getArrowButtonCircle('left'))) {
-    placeControl.direction = -1;
-    placeControlPointerId = evt.pointerId;
-    return;
-  }
-  if (isInsideCircle(pos, getArrowButtonCircle('right'))) {
-    placeControl.direction = 1;
-    placeControlPointerId = evt.pointerId;
-    return;
-  }
-
   // Clic sur le cadenas peint : ouvre l'overlay si Lauren est assez proche.
   const containT = getPlaceContainT(placeAssets);
   const s = getPlaceLockScreen(containT);
   const dx = pos.x - s.cx;
   const dy = pos.y - s.cy;
   if (dx * dx + dy * dy <= s.r * s.r && laurenNearLock()) {
-    placeControl.direction = 0;
-    placeControlPointerId = null;
     openLock(onPlaceUnlock);
   }
 }
@@ -292,16 +273,7 @@ function updatePlacePhase() {
   }
 }
 
-function handlePlaceUp(evt) {
-  if (evt.pointerId === placeControlPointerId) {
-    placeControl.direction = 0;
-    placeControlPointerId = null;
-  }
-}
-
 canvas.addEventListener('pointerdown', (evt) => { if (scene === 'place') handlePlaceDown(evt); });
-canvas.addEventListener('pointerup', (evt) => { if (scene === 'place') handlePlaceUp(evt); });
-canvas.addEventListener('pointercancel', (evt) => { if (scene === 'place') handlePlaceUp(evt); });
 
 // ---------- Scène ----------
 
@@ -331,7 +303,7 @@ function drawPlaceScene(assets, elapsed, dt) {
   updatePlaceLauren(dt);
   drawCharacter(placeLauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE_GROUND_Y);
 
-  if (placeEntered && !lockActive && placePhase === 'play') drawPlaceControls();
+  if (placeEntered && !lockActive && placePhase === 'play') drawKeyboardMoveHint();
 
   // Overlay du cadenas par-dessus la scène.
   if (lockActive) drawLockScene(assets, elapsed, dt);

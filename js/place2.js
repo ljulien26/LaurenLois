@@ -4,9 +4,9 @@
 // Quiz) ; à la bonne réponse, le titre s'illumine, puis un panneau "SORTIE"
 // apparaît à droite : y amener Lauren déclenche un fondu au noir vers la suite.
 //
-// Réutilise : character.js, les flèches de premenu.js (getArrowButtonCircle,
-// drawArrowButton, isInsideCircle), et de lock.js (drawPill, pointInRect,
-// pillSize), la police via menu.js (fitButtonFontSize).
+// Réutilise : character.js, le déplacement clavier (keyDirection de core.js),
+// lock.js (drawPill, pointInRect, pillSize), la police via menu.js
+// (fitButtonFontSize).
 // ============================================================
 
 const PLACE2_GROUND_Y = 462;         // un peu plus bas : Lauren plus proche du 1er plan
@@ -48,9 +48,6 @@ let place2Picked = -1;           // réponse tapée en attente de feedback
 let place2PickedStart = 0;
 let place2PickedCorrect = false;
 
-const place2Control = { direction: 0 };
-let place2ControlPointerId = null;
-
 let place2Assets = null;
 
 function place2Reset() {
@@ -58,8 +55,6 @@ function place2Reset() {
   place2TitleRevealStart = -1;
   place2ExitStart = -1;
   place2Picked = -1;
-  place2Control.direction = 0;
-  place2ControlPointerId = null;
   place2Lauren.x = PLACE2_LAUREN_START_X;
   place2Lauren.facing = 'right'; // tournée vers le café, prête à avancer
   place2Lauren.walking = false;
@@ -245,17 +240,18 @@ function drawPlace2Question(assets) {
 // sortie.
 function updatePlace2Lauren(dt) {
   const controllable = place2Phase === 'enter' || place2Phase === 'explore';
-  if (!controllable || place2Control.direction === 0) {
+  const dir = controllable ? keyDirection() : 0;
+  if (dir === 0) {
     place2Lauren.walking = false;
     place2Lauren.frameIndex = 0;
     updateWalkSound(dt, false);
     return;
   }
 
-  const nextX = place2Lauren.x + place2Control.direction * CHARACTER_WALK_SPEED * dt;
+  const nextX = place2Lauren.x + dir * CHARACTER_WALK_SPEED * dt;
   const clampedX = Math.max(PLACE2_LAUREN_MIN_X, Math.min(PLACE2_LAUREN_MAX_X, nextX));
   if (clampedX !== place2Lauren.x) {
-    place2Lauren.facing = place2Control.direction < 0 ? 'left' : 'right';
+    place2Lauren.facing = dir < 0 ? 'left' : 'right';
     place2Lauren.x = clampedX;
     place2Lauren.walking = true;
     place2Lauren.frameElapsed += dt * 1000;
@@ -272,7 +268,6 @@ function updatePlace2Lauren(dt) {
 
   // Arrivée au milieu : la question démarre (effet machine à écrire).
   if (place2Phase === 'enter' && place2Lauren.x >= PLACE2_QUESTION_TRIGGER_X) {
-    place2Control.direction = 0;
     place2Phase = 'question';
     place2QuestionStart = performance.now();
     return;
@@ -280,60 +275,34 @@ function updatePlace2Lauren(dt) {
 
   // Sortie atteinte : on lance le fondu au noir.
   if (place2Phase === 'explore' && place2Lauren.x >= PLACE2_EXIT_X && place2ExitStart < 0) {
-    place2Control.direction = 0;
     place2Phase = 'exit';
     place2ExitStart = performance.now();
   }
 }
 
-function drawPlace2Controls() {
-  drawArrowButton('left', place2Control.direction === -1);
-  drawArrowButton('right', place2Control.direction === 1);
-}
-
-// ---------- Entrées ----------
+// ---------- Entrées : seul le clic sur une réponse est géré ici (le
+// déplacement de Lauren se fait au clavier, voir updatePlace2Lauren). ----------
 function handlePlace2Down(evt) {
+  if (place2Phase !== 'question' || place2Picked !== -1) return; // rien à cliquer / feedback en cours
+
+  const typing = place2Typing();
+  // On ne peut répondre qu'une fois que les 4 réponses sont entièrement
+  // affichées (avant ça, aucune réponse n'est sélectionnable).
+  if (!typing.answers.every((a) => a.full)) return;
+
   const pos = getPointerPos(evt);
-
-  if (place2Phase === 'question') {
-    if (place2Picked !== -1) return; // feedback en cours
-    const typing = place2Typing();
-    // On ne peut répondre qu'une fois que les 4 réponses sont entièrement
-    // affichées (avant ça, aucune réponse n'est sélectionnable).
-    if (!typing.answers.every((a) => a.full)) return;
-    const rects = place2AnswerRects();
-    for (let i = 0; i < 4; i++) {
-      if (pointInRect(pos, rects[i])) {
-        place2Picked = i;
-        place2PickedStart = performance.now();
-        place2PickedCorrect = i === PLACE2_CORRECT;
-        return;
-      }
+  const rects = place2AnswerRects();
+  for (let i = 0; i < 4; i++) {
+    if (pointInRect(pos, rects[i])) {
+      place2Picked = i;
+      place2PickedStart = performance.now();
+      place2PickedCorrect = i === PLACE2_CORRECT;
+      return;
     }
-    return;
-  }
-
-  if (place2Phase === 'enter' || place2Phase === 'explore') {
-    if (isInsideCircle(pos, getArrowButtonCircle('left'))) {
-      place2Control.direction = -1;
-      place2ControlPointerId = evt.pointerId;
-    } else if (isInsideCircle(pos, getArrowButtonCircle('right'))) {
-      place2Control.direction = 1;
-      place2ControlPointerId = evt.pointerId;
-    }
-  }
-}
-
-function handlePlace2Up(evt) {
-  if (evt.pointerId === place2ControlPointerId) {
-    place2Control.direction = 0;
-    place2ControlPointerId = null;
   }
 }
 
 canvas.addEventListener('pointerdown', (evt) => { if (scene === 'place2') handlePlace2Down(evt); });
-canvas.addEventListener('pointerup', (evt) => { if (scene === 'place2') handlePlace2Up(evt); });
-canvas.addEventListener('pointercancel', (evt) => { if (scene === 'place2') handlePlace2Up(evt); });
 
 // ---------- Résolution du feedback de réponse ----------
 function updatePlace2Answer() {
@@ -366,9 +335,9 @@ function drawPlace2Scene(assets, elapsed, dt) {
 
   drawCharacter(place2Lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE2_GROUND_Y);
 
-  // Flèches de déplacement : à l'arrivée (jusqu'au milieu) puis à l'exploration.
+  // Indice clavier : à l'arrivée (jusqu'au milieu) puis à l'exploration.
   if (place2Phase === 'enter' || place2Phase === 'explore') {
-    drawPlace2Controls();
+    drawKeyboardMoveHint();
   }
 
   if (place2Phase === 'question') {

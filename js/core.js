@@ -91,6 +91,41 @@ function getPointerPos(evt) {
   return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
 }
 
+// ---------- Clavier (déplacement des personnages sur ordinateur) ----------
+// Direction courante : -1 (gauche), 0 (immobile), +1 (droite). Flèches ← → et
+// A/Q (gauche) / D (droite), pour couvrir claviers QWERTY et AZERTY.
+const heldKeys = new Set();
+
+function keyDirection() {
+  const left = heldKeys.has('arrowleft') || heldKeys.has('a') || heldKeys.has('q');
+  const right = heldKeys.has('arrowright') || heldKeys.has('d');
+  return (right ? 1 : 0) - (left ? 1 : 0);
+}
+
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'arrowright' || k === 'a' || k === 'q' || k === 'd') {
+    heldKeys.add(k);
+    if (k === 'arrowleft' || k === 'arrowright') e.preventDefault(); // pas de défilement
+  }
+});
+window.addEventListener('keyup', (e) => heldKeys.delete(e.key.toLowerCase()));
+
+// Indice discret rappelant que le déplacement se fait au clavier. Affiché en
+// bas de l'écran tant que le joueur contrôle un personnage. S'estompe dès
+// qu'une touche de direction est enfoncée (le joueur a compris).
+function drawKeyboardMoveHint() {
+  const alpha = keyDirection() !== 0 ? 0.15 : 0.5 + Math.sin(performance.now() / 600) * 0.12;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `${Math.round(window.innerHeight * 0.026)}px 'Courier New', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('←  →  pour se déplacer', window.innerWidth / 2, window.innerHeight * 0.96);
+  ctx.restore();
+}
+
 function isInsideRect(pos, rect) {
   return (
     !!rect &&

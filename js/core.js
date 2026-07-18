@@ -4,15 +4,26 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
 function resize() {
-  const dpr = window.devicePixelRatio || 1;
+  // DPR plafonné à 2 : suffisant pour rester net (y compris écrans 3x des
+  // iPhone) tout en gardant le canvas raisonnable pour de bonnes perfs.
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = window.innerWidth;
   const h = window.innerHeight;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = false;
 }
 window.addEventListener('resize', resize);
+// iOS rapporte parfois les anciennes dimensions au changement d'orientation :
+// on redimensionne aussi juste après l'événement.
+window.addEventListener('orientationchange', () => setTimeout(resize, 150));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', resize);
+}
+// Pas de menu contextuel au clic droit / long-press, ni de pinch-zoom iOS.
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+document.addEventListener('gesturestart', (e) => e.preventDefault());
 resize();
 
 // ---------- Chargement d'images ----------
@@ -78,10 +89,39 @@ function isInsideRect(pos, rect) {
   );
 }
 
+// ---------- Déblocage audio ----------
+// Les navigateurs bloquent tout son tant qu'aucun geste utilisateur n'a eu
+// lieu sur la page. Chaque scène enregistre ici ses sons ; ils sont tous
+// "amorcés" (lecture/pause muette) au premier tap, y compris ceux qui ne
+// serviront que bien plus tard (ex. la musique du Menu), sans quoi ils
+// seraient refusés faute de geste au moment de leur lecture.
+
+const audioToUnlock = [];
+
+function registerAudioForUnlock(audio) {
+  audioToUnlock.push(audio);
+}
+
+function unlockAudio() {
+  audioToUnlock.forEach((audio) => {
+    const wasMuted = audio.muted;
+    audio.muted = true;
+    audio.play()
+      .then(() => {
+        audio.pause();
+        audio.currentTime = 0;
+        audio.muted = wasMuted;
+      })
+      .catch(() => {
+        audio.muted = wasMuted;
+      });
+  });
+}
+
 // ---------- Boucle de jeu ----------
-// Scènes : 'premenu' -> 'tvOn' -> 'blackout' -> 'menu' -> (jeu, à venir)
+// Scènes : 'premenu' -> 'tvOn' -> 'blackout' -> 'menu' -> 'place'
 // Chaque scène est dessinée par une fonction définie dans son propre fichier
-// (premenu.js, menu.js, ...).
+// (premenu.js, menu.js, place.js, ...).
 
 let scene = 'premenu';
 let startTime = null; // début de la scène courante (remis à zéro à chaque changement de scène)
@@ -107,6 +147,10 @@ function loop(timestamp, assets) {
     drawBlackoutScene(assets, elapsed, dt);
   } else if (scene === 'menu') {
     drawMenuScene(assets, elapsed, dt);
+  } else if (scene === 'place') {
+    drawPlaceScene(assets, elapsed, dt);
+  } else if (scene === 'place2') {
+    drawPlace2Scene(assets, elapsed, dt);
   }
 
   requestAnimationFrame((ts) => loop(ts, assets));

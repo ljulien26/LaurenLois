@@ -91,11 +91,13 @@ function updateCharacter(c, dt) {
   }
 }
 
-function drawCharacter(c, idleImg, walkFrames, containT, pressFrames) {
+// anchorY : niveau du sol (pieds) en coordonnées du fond de la scène. Par
+// défaut celui du PreMenu ; une scène au sol différent (ex. le café) le passe.
+function drawCharacter(c, idleImg, walkFrames, containT, pressFrames, anchorY = CHARACTER_ANCHOR_Y) {
   const h = CHARACTER_HEIGHT * c.scale * containT.scale;
   const w = h * CHARACTER_ASPECT;
   const screenX = containT.dx + c.x * containT.scale;
-  const screenY = containT.dy + CHARACTER_ANCHOR_Y * containT.scale;
+  const screenY = containT.dy + anchorY * containT.scale;
   const x = screenX - w / 2;
   const y = screenY - h;
 

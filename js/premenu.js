@@ -3,8 +3,8 @@
 // tap, l'écran s'allume et Loïs (bleu) arrive automatiquement depuis la
 // gauche et active son bouton (bot). Une fois cela fait, Lauren (rose)
 // entre en marchant depuis la droite : le joueur la déplace avec les deux
-// boutons fléchés affichés en bas de l'écran, et doit maintenir la flèche
-// gauche contre le bouton rose pour qu'elle l'active elle-même. La télé
+// boutons fléchés affichés en bas de l'écran, puis clique sur le bouton rose
+// (une fois Lauren assez proche) pour qu'elle l'active elle-même. La télé
 // s'allume alors (voir premenu-tv.js) et un fondu au noir mène au Menu.
 //
 // Dépend de : character.js (système générique de personnage), premenu-sound.js
@@ -38,18 +38,25 @@ const LOIS_TARGET_X = preMenuButtons.bleu.anchorX
 // Lauren : sprite natif tourné vers la gauche. Entre en marchant depuis
 // hors-écran à droite jusqu'à LAUREN_READY_X (le joueur ne peut pas interférer
 // pendant cette entrée) : à partir de là, c'est à lui de la faire avancer
-// jusqu'à son bouton, puis de maintenir la flèche gauche (vers le bouton)
-// pour qu'elle appuie elle-même dessus (le simple contact ne déclenche rien).
+// jusqu'à son bouton, puis de cliquer sur le bouton pour qu'elle appuie
+// dessus (le simple contact ne déclenche rien, et elle doit lui faire face).
 const LAUREN_VISIBLE_WIDTH_RATIO = 38 / 96;
 const LAUREN_OFFSCREEN_START_X = 1047;
 const LAUREN_READY_X = 907; // aussi la limite droite pour les déplacements contrôlés par le joueur
-const LAUREN_SCALE = 0.97; // -3 %
+const LAUREN_SCALE = 1.0088; // 0.97 + 4 %
 const lauren = createCharacter(LAUREN_OFFSCREEN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, LAUREN_SCALE, 2);
 // Lauren approche par la droite : LAUREN_TARGET_X est la limite GAUCHE (la plus
 // petite valeur de x) qu'elle peut atteindre, pas une limite haute.
 const LAUREN_TARGET_X = preMenuButtons.rose.anchorX
   + BUTTON_DISPLAY_W_FOND * (0.5 - BUTTON_PENETRATION_RATIO)
   + characterHalfWidth(lauren);
+// Marge (en unités Fond.png) au-delà de sa position d'arrêt dans laquelle un
+// clic sur le bouton compte encore : au-delà, elle est trop loin pour appuyer.
+const LAUREN_PRESS_REACH = 30;
+
+// Assets de la scène, mémorisés pour que les gestionnaires de clic puissent
+// calculer la position écran des boutons hors de la boucle de rendu.
+let preMenuAssets = null;
 
 // Dessine Loïs puis Lauren, avec leurs frames d'appui respectives. Utilisé
 // par la scène PreMenu et par les scènes de transition (premenu-tv.js).
@@ -63,9 +70,9 @@ function drawBothCharacters(assets, containT) {
 // en bas de l'écran, à maintenir enfoncés, la font marcher (relâcher l'arrête
 // net). Rien ne se déclenche sans que le joueur maintienne un bouton.
 
-const ARROW_BUTTON_RADIUS_RATIO = 0.045; // relatif à la plus petite dimension de l'écran
-const ARROW_BUTTON_MARGIN_RATIO = 0.06;  // relatif à la largeur de l'écran
-const ARROW_BUTTON_BOTTOM_RATIO = 0.88;  // relatif à la hauteur de l'écran
+const ARROW_BUTTON_RADIUS_RATIO = 0.058; // relatif à la plus petite dimension de l'écran (plus gros)
+const ARROW_BUTTON_MARGIN_RATIO = 0.16;  // relatif à la largeur de l'écran (plus rapprochés du centre)
+const ARROW_BUTTON_BOTTOM_RATIO = 0.85;  // relatif à la hauteur de l'écran (un peu réhaussés)
 
 function getArrowButtonCircle(side) {
   const radius = Math.min(window.innerWidth, window.innerHeight) * ARROW_BUTTON_RADIUS_RATIO;
@@ -158,6 +165,7 @@ const STAGE_LOIS_WALKING = 'loisWalking';
 const STAGE_LOIS_PRESSING = 'loisPressing';
 const STAGE_LAUREN_ENTERING = 'laurenEntering';
 const STAGE_LAUREN_CONTROLLABLE = 'laurenControllable';
+const STAGE_LAUREN_PRESSING = 'laurenPressing';
 const STAGE_DONE = 'done';
 
 // On attend un premier tap (nécessaire pour débloquer le son) avant que
@@ -219,47 +227,31 @@ function updatePreMenuActors(dt) {
       }
       break;
 
-    case STAGE_LAUREN_CONTROLLABLE:
-      // Le simple contact avec le bouton ne suffit pas : Lauren doit appuyer
-      // elle-même, c'est-à-dire que le joueur doit continuer à pousser vers le
-      // bouton (flèche gauche, puisqu'il est à sa gauche) une fois bloquée
-      // contre lui, en continu pendant PRESS_DURATION.
-      if (lauren.x <= LAUREN_TARGET_X && laurenControl.direction === -1) {
-        if (!lauren.pressing) {
-          preMenuButtons.rose.state = 'pressed';
-          playButtonSound();
-          startPressing(lauren);
-          pressTimer = 0;
-        }
-        pressTimer += dt * 1000;
-        if (pressTimer >= PRESS_DURATION) {
-          preMenuButtons.rose.state = 'activated';
-          stopPressing(lauren);
-          laurenControl.direction = 0;
-          laurenControlPointerId = null;
-          // Les 2 boutons sont désormais activés : joue le son d'activation,
-          // la télé s'allume et flashe pendant toute sa durée.
-          playActivationSound();
-          preMenuStage = STAGE_DONE;
-          scene = 'tvOn';
-          startTime = null;
-        }
-      } else if (lauren.pressing) {
-        // Relâché avant la fin : elle arrête d'appuyer, le bouton se relâche.
-        preMenuButtons.rose.state = 'idle';
+    case STAGE_LAUREN_PRESSING:
+      pressTimer += dt * 1000;
+      if (pressTimer >= PRESS_DURATION) {
+        preMenuButtons.rose.state = 'activated';
         stopPressing(lauren);
-        pressTimer = 0;
+        // Les 2 boutons sont désormais activés : joue le son d'activation,
+        // la télé s'allume et flashe pendant toute sa durée.
+        playActivationSound();
+        preMenuStage = STAGE_DONE;
+        scene = 'tvOn';
+        startTime = null;
       }
       break;
 
-    // STAGE_WAITING_TO_START : rien à faire, on attend le premier tap.
+    // STAGE_WAITING_TO_START : on attend le premier tap.
+    // STAGE_LAUREN_CONTROLLABLE : on attend que le joueur amène Lauren près du
+    // bouton puis clique dessus (voir handlePreMenuDown).
   }
 }
 
 // Premier tap : débloque le son et allume l'écran ; Loïs (bot) arrive un peu
 // plus tard (STAGE_ABOUT_TO_START). Ensuite, tant que Lauren est contrôlable,
-// seul un doigt maintenu sur l'un des deux boutons fléchés la fait marcher
-// dans cette direction ; le relâcher l'arrête.
+// un doigt maintenu sur l'un des deux boutons fléchés la fait marcher dans
+// cette direction (le relâcher l'arrête), et un clic sur le bouton rose la
+// fait appuyer dessus — à condition qu'elle soit assez proche.
 function handlePreMenuDown(evt) {
   if (preMenuStage === STAGE_WAITING_TO_START) {
     unlockAudio();
@@ -270,15 +262,37 @@ function handlePreMenuDown(evt) {
     return;
   }
 
-  if (preMenuStage === STAGE_LAUREN_CONTROLLABLE) {
-    const pos = getPointerPos(evt);
-    if (isInsideCircle(pos, getArrowButtonCircle('left'))) {
-      laurenControl.direction = -1;
-      laurenControlPointerId = evt.pointerId;
-    } else if (isInsideCircle(pos, getArrowButtonCircle('right'))) {
-      laurenControl.direction = 1;
-      laurenControlPointerId = evt.pointerId;
-    }
+  if (preMenuStage !== STAGE_LAUREN_CONTROLLABLE) return;
+
+  const pos = getPointerPos(evt);
+
+  if (isInsideCircle(pos, getArrowButtonCircle('left'))) {
+    laurenControl.direction = -1;
+    laurenControlPointerId = evt.pointerId;
+    return;
+  }
+  if (isInsideCircle(pos, getArrowButtonCircle('right'))) {
+    laurenControl.direction = 1;
+    laurenControlPointerId = evt.pointerId;
+    return;
+  }
+
+  // Clic sur le bouton rose : il faut que Lauren soit venue assez près ET
+  // qu'elle regarde vers le bouton (à sa gauche). Dos tourné, elle ne peut
+  // pas appuyer : au joueur de la réorienter avec la flèche gauche.
+  const containT = getPreMenuContainT(preMenuAssets);
+  const roseCircle = getPreMenuButtonCircle(preMenuButtons.rose, containT);
+  const isNearRose = lauren.x <= LAUREN_TARGET_X + LAUREN_PRESS_REACH;
+  const facesRose = lauren.facing === 'left';
+
+  if (isInsideCircle(pos, roseCircle) && isNearRose && facesRose) {
+    laurenControl.direction = 0;
+    laurenControlPointerId = null;
+    preMenuButtons.rose.state = 'pressed';
+    playButtonSound();
+    startPressing(lauren);
+    pressTimer = 0;
+    preMenuStage = STAGE_LAUREN_PRESSING;
   }
 }
 
@@ -332,6 +346,8 @@ function drawLightUpOverlay() {
 }
 
 function drawPreMenuScene(assets, dt) {
+  preMenuAssets = assets;
+
   if (preMenuStage === STAGE_WAITING_TO_START) {
     // Écran totalement noir tant que le joueur n'a pas touché l'écran.
     ctx.save();

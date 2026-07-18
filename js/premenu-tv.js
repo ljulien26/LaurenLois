@@ -8,9 +8,11 @@
 // ============================================================
 
 // Durée mesurée précisément (via l'API média) du son d'activation. La
-// transition vers le Menu démarre 1s avant la fin réelle du son.
+// On cale la fin du son sur l'écran noir : la télé flashe jusqu'à ce que le
+// fondu au noir démarre, et ce fondu (BLACKOUT_FADE_OUT_DURATION = 550 ms)
+// se termine pile quand le son se coupe. Donc tvOn dure (son − 550 ms).
 const ACTIVATION_SOUND_DURATION = 5720;
-const TV_ON_DURATION = ACTIVATION_SOUND_DURATION - 1000;
+const TV_ON_DURATION = ACTIVATION_SOUND_DURATION - 550;
 
 // Coupure classique : la scène PreMenu s'assombrit, courte pause au noir,
 // puis le Menu apparaît en fondu depuis le noir. Un peu plus lente pour
@@ -32,44 +34,68 @@ const TV_STATIC_DENSE = 1;
 const TV_FLASH_WEAK = 2;
 const TV_FLASH_STRONG = 3;
 const TV_CALM = 4;
-const TV_GLOW_BY_FRAME = [0, 0, 0.4, 0.9, 0]; // lueur qui déborde dans la pièce, par frame
+// Lueur qui déborde dans la pièce, par frame. Jamais nulle, même sur la
+// statique : la télé éclaire la pièce en continu, et les flashs ne sont que
+// des pics par-dessus cette lueur de fond.
+const TV_GLOW_BY_FRAME = [0.14, 0.2, 0.55, 1, 0.1];
 
-const TV_TIMID_PHASE_DURATION = 900;   // ms : démarrage timide, la télé qui chauffe
-const TV_SETTLE_PHASE_DURATION = 700;  // ms : elle se calme avant de s'éteindre
-const TV_FADE_OUT_DURATION = 300;      // ms : fondu final avant le noir
+const TV_TIMID_PHASE_DURATION = 450; // ms : démarrage timide, la télé qui chauffe
 
-// Tout début : quelques changements timides, un bref aperçu du flash faible.
+// Tout début : la télé sort du calme, quelques changements timides, un premier
+// flash faible en guise d'amorce.
 const TV_TIMID_SEQUENCE = [
+  { end: 130, frame: TV_CALM },
   { end: 250, frame: TV_STATIC_LIGHT },
-  { end: 500, frame: TV_STATIC_DENSE },
-  { end: 700, frame: TV_STATIC_LIGHT },
-  { end: 820, frame: TV_FLASH_WEAK },
-  { end: 900, frame: TV_STATIC_DENSE },
+  { end: 330, frame: TV_CALM },
+  { end: 400, frame: TV_STATIC_DENSE },
+  { end: 450, frame: TV_FLASH_WEAK },
 ];
 
-// Corps de la séquence : peu de flashs, mais bien marqués et espacés de façon
-// irrégulière (jamais le même intervalle deux fois), certains tenus plus
-// longtemps comme un vrai flash photo, un seul double-flash pour casser le
-// rythme. Entre deux flashs, la statique "respire" sur des durées irrégulières.
-const TV_MAIN_SEQUENCE = [
-  { end: 350, frame: TV_STATIC_DENSE },
-  { end: 600, frame: TV_FLASH_STRONG },
-  { end: 950, frame: TV_STATIC_LIGHT },
-  { end: 1000, frame: TV_FLASH_WEAK },
-  { end: 1450, frame: TV_STATIC_DENSE },
-  { end: 1620, frame: TV_FLASH_STRONG },
-  { end: 1660, frame: TV_FLASH_WEAK },
-  { end: 2100, frame: TV_STATIC_LIGHT },
-  { end: 2200, frame: TV_FLASH_STRONG },
-  { end: 2820, frame: TV_STATIC_DENSE },
-];
+// Durée que la montée doit couvrir : tout ce qui reste jusqu'à la transition.
+const TV_MAIN_PHASE_DURATION = TV_ON_DURATION - TV_TIMID_PHASE_DURATION;
 
-// Sur la fin : de moins en moins de flashs, retour à une statique calme.
-const TV_SETTLE_SEQUENCE = [
-  { end: 250, frame: TV_FLASH_WEAK },
-  { end: 450, frame: TV_STATIC_DENSE },
-  { end: 700, frame: TV_CALM },
-];
+// Réglages de la montée : au début les flashs sont rares et faibles, à la fin
+// ils sont plus fréquents — mais on garde un écart raisonnable pour éviter un
+// stroboscope trop agressif juste avant la coupure.
+const TV_GAP_START = 340;  // ms de statique entre deux flashs, au début
+const TV_GAP_END = 120;    // ms de statique entre deux flashs, à la fin
+const TV_FLASH_DUR_START = 60;
+const TV_FLASH_DUR_END = 95;
+
+// La séquence est construite plutôt qu'écrite à la main : ça exprime
+// directement la montée (les écarts se resserrent, les flashs forts prennent
+// le dessus) et reste réglable via les 4 constantes ci-dessus. Le "jitter"
+// déterministe évite un rythme mécanique tout en gardant un rendu identique
+// à chaque partie.
+function buildTvRampSequence(totalDuration) {
+  const steps = [];
+  let t = 0;
+  let n = 0;
+
+  while (t < totalDuration) {
+    const p = Math.min(t / totalDuration, 1); // 0 au début, 1 à la transition
+    const jitter = 0.8 + Math.abs(Math.sin(n * 2.399)) * 0.4;
+
+    // Statique entre deux flashs, de plus en plus courte.
+    t += (TV_GAP_START + (TV_GAP_END - TV_GAP_START) * p) * jitter;
+    steps.push({ end: t, frame: n % 2 === 0 ? TV_STATIC_DENSE : TV_STATIC_LIGHT });
+
+    // Flash : la probabilité qu'il soit fort monte avec la progression. Le
+    // facteur 1.3 fait apparaître les premiers flashs forts dès le milieu,
+    // sinon ils débarquent tous d'un coup à la toute fin.
+    t += TV_FLASH_DUR_START + (TV_FLASH_DUR_END - TV_FLASH_DUR_START) * p;
+    const isStrong = Math.abs(Math.sin(n * 1.7)) < p * 0.9;
+    steps.push({ end: t, frame: isStrong ? TV_FLASH_STRONG : TV_FLASH_WEAK });
+
+    n++;
+  }
+
+  // Cale la dernière étape pile sur la fin de la fenêtre : aucune image ne fige.
+  steps[steps.length - 1].end = totalDuration;
+  return steps;
+}
+
+const TV_MAIN_SEQUENCE = buildTvRampSequence(TV_MAIN_PHASE_DURATION);
 
 function pickTvFrame(elapsed) {
   if (elapsed < TV_TIMID_PHASE_DURATION) {
@@ -79,20 +105,11 @@ function pickTvFrame(elapsed) {
     return TV_STATIC_DENSE;
   }
 
-  const settleStart = TV_ON_DURATION - TV_SETTLE_PHASE_DURATION - TV_FADE_OUT_DURATION;
-  if (elapsed >= settleStart) {
-    const t = elapsed - settleStart;
-    for (const step of TV_SETTLE_SEQUENCE) {
-      if (t < step.end) return step.frame;
-    }
-    return TV_CALM;
-  }
-
   const t = elapsed - TV_TIMID_PHASE_DURATION;
   for (const step of TV_MAIN_SEQUENCE) {
     if (t < step.end) return step.frame;
   }
-  return TV_STATIC_DENSE;
+  return TV_FLASH_STRONG;
 }
 
 // Dessine le sprite de la télé (boîtier + écran) centré sur son ancrage dans
@@ -134,18 +151,34 @@ function drawIdleTv(assets, containT) {
   drawTvSprite(assets.tvFrames[frameIndex], containT, 1, 0);
 }
 
-// Pendant la scène tvOn : frame choisie par la séquence de flashs, avec un
-// fondu final avant le passage au noir.
+// Ondulation continue de la lumière : plusieurs fréquences superposées, pour
+// que la lueur de la pièce vibre en permanence au lieu d'être un niveau fixe
+// entre deux flashs.
+function tvGlowWobble(elapsed) {
+  return 0.85
+    + Math.sin(elapsed / 70) * 0.09
+    + Math.sin(elapsed / 163 + 1.3) * 0.06
+    + Math.sin(elapsed / 37 + 0.5) * 0.04;
+}
+
+// Dernier état affiché par la scène tvOn : réutilisé pendant le fondu au noir
+// qui suit, pour enchaîner sans retomber d'un coup sur la statique calme.
+let lastTvFrameIndex = TV_STATIC_DENSE;
+let lastTvGlow = 0;
+
+// Pendant la scène tvOn : frame choisie par la montée de flashs, avec une
+// lueur qui ondule en continu et s'intensifie à mesure qu'on approche de la
+// transition. Pas de fondu ici : la télé reste allumée jusqu'au bout, c'est la
+// scène "blackout" qui prend le relais pour l'extinction.
 function drawTvScreen(assets, containT, elapsed) {
   const frameIndex = pickTvFrame(elapsed);
+  const buildUp = 0.55 + 0.45 * Math.min(elapsed / TV_ON_DURATION, 1);
+  const glow = TV_GLOW_BY_FRAME[frameIndex] * tvGlowWobble(elapsed) * buildUp;
 
-  let alpha = 1;
-  const fadeOutStart = TV_ON_DURATION - TV_FADE_OUT_DURATION;
-  if (elapsed > fadeOutStart) {
-    alpha = Math.max(0, 1 - (elapsed - fadeOutStart) / TV_FADE_OUT_DURATION);
-  }
+  lastTvFrameIndex = frameIndex;
+  lastTvGlow = glow;
 
-  drawTvSprite(assets.tvFrames[frameIndex], containT, alpha, TV_GLOW_BY_FRAME[frameIndex] * alpha);
+  drawTvSprite(assets.tvFrames[frameIndex], containT, 1, glow);
 }
 
 // ---------- Scènes de transition ----------
@@ -174,7 +207,9 @@ function drawBlackoutScene(assets, elapsed, dt) {
   if (elapsed < fadeOutEnd) {
     const containT = getPreMenuContainT(assets);
     drawBackgroundContain(assets.preMenuFond, containT);
-    drawIdleTv(assets, containT);
+    // On repart de la dernière image de la télé (et de sa lueur) plutôt que de
+    // la statique calme : sinon le climax de flashs retomberait d'un coup.
+    drawTvSprite(assets.tvFrames[lastTvFrameIndex], containT, 1, lastTvGlow);
     drawBothPreMenuButtons(containT);
     drawBothCharacters(assets, containT);
 

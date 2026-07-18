@@ -167,7 +167,7 @@ function drawTitle(img, elapsed) {
 const BUTTON_TEXT = "Démarrer l'aventure";
 const BUTTON_ASPECT = 255 / 1349;
 
-const BUTTON_DELAY = TITLE_DELAY + TITLE_ZOOM_DURATION + 350; // laisse le titre bien se poser avant d'apparaître
+const BUTTON_DELAY = TITLE_DELAY + TITLE_ZOOM_DURATION - 700; // apparaît pendant que le titre finit de se poser
 const BUTTON_ENTER_DURATION = 700;
 
 let buttonRect = null; // { x, y, w, h } en CSS px, recalculé chaque frame pour le hit-test
@@ -232,7 +232,33 @@ function drawStartButton(img, elapsed) {
   ctx.restore();
 }
 
+// ---------- Musique du menu ("Take on Me") ----------
+// Joue en boucle tant qu'on est sur le Menu, s'arrête au départ vers le jeu.
+// Amorcée dès le premier tap du PreMenu (registerAudioForUnlock) pour passer
+// la politique d'autoplay des navigateurs.
+const MENU_MUSIC_VOLUME = 0.5;
+const menuMusic = new Audio('Assets/Sound/Générique/Take on Me (Video Version) (2015 Remaster).mp3');
+menuMusic.loop = true;
+registerAudioForUnlock(menuMusic);
+
+let menuMusicStarted = false;
+
+function startMenuMusic() {
+  if (menuMusicStarted) return;
+  menuMusicStarted = true;
+  menuMusic.volume = MENU_MUSIC_VOLUME;
+  menuMusic.currentTime = 0;
+  menuMusic.play().catch(() => {});
+}
+
+function stopMenuMusic() {
+  menuMusicStarted = false;
+  menuMusic.pause();
+  menuMusic.currentTime = 0;
+}
+
 function drawMenuScene(assets, elapsed, dt) {
+  startMenuMusic();
   drawBackgroundCover(assets.menuFond);
   clouds.forEach((cloud) => {
     cloud.update(dt);
@@ -255,8 +281,10 @@ canvas.addEventListener('pointerdown', (evt) => {
 canvas.addEventListener('pointerup', (evt) => {
   if (scene !== 'menu') return;
   if (buttonPressed && isInsideButton(getPointerPos(evt))) {
-    // TODO : lancer la séquence d'ouverture (Loïs / Lauren) une fois les assets prêts
-    console.log("Démarrer l'aventure");
+    canvas.style.cursor = 'default';
+    stopMenuMusic();
+    scene = 'place';
+    startTime = null;
   }
   buttonPressed = false;
 });

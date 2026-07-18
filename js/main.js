@@ -32,6 +32,13 @@ Promise.all([
   loadImage('Assets/PreMenu/Télé/3.Flash faible.png'),
   loadImage('Assets/PreMenu/Télé/4.Flash fort.png'),
   loadImage('Assets/PreMenu/Télé/5.Retour au calme.png'),
+  loadImage('Assets/Jeu/Places/1.png'),
+  loadImage('Assets/Jeu/Places/2.png'),
+  loadImage('Assets/Jeu/Cadenas/1.png'),
+  loadImage('Assets/Jeu/Cadenas/2.png'),
+  loadImage('Assets/Jeu/Quiz/Boutons/Question.png'),
+  loadImage('Assets/Jeu/Quiz/Boutons/Bonne réponse.png'),
+  loadImage('Assets/Jeu/Quiz/Boutons/Mauvaise réponse.png'),
 ])
   .then(([
     menuFond, menuTitre, nuagesImg, menuBouton,
@@ -45,6 +52,8 @@ Promise.all([
     loisWalk18, loisWalk19, loisWalk20, loisWalk21,
     loisPress1, loisPress2,
     tvStaticLight, tvStaticDense, tvFlashWeak, tvFlashStrong, tvCalm,
+    placeFond, place2Fond, cadenasClosed, cadenasOpen1,
+    quizPanel, quizGood, quizBad,
   ]) => {
     createClouds(nuagesImg);
 
@@ -52,7 +61,9 @@ Promise.all([
     preMenuButtons.rose.images = { idle: roseIdle, pressed: rosePressed, activated: roseActivated };
 
     const assets = {
-      menuFond, menuTitre, menuBouton, preMenuFond,
+      menuFond, menuTitre, menuBouton, preMenuFond, placeFond, place2Fond,
+      cadenasFrames: [cadenasClosed, cadenasOpen1],
+      quizPanel, quizGood, quizBad,
       laurenIdle,
       laurenWalk: [laurenWalk6, laurenWalk7, laurenWalk9, laurenWalk10, laurenWalk11],
       laurenPress: [laurenPress1, laurenPress2],

@@ -22,6 +22,20 @@ const BUTTON_DISPLAY_W_FOND = 60;
 // l'ancien bouton dessiné dans le fond avant de poser le sprite par-dessus.
 const BUTTON_MASK_RADIUS_RATIO = 0.45;
 
+// Rayon (relatif à destW) de la zone cliquable : un peu plus large que le
+// disque visible, pour rester confortable au doigt sur téléphone.
+const BUTTON_HIT_RADIUS_RATIO = 0.6;
+
+// Cercle du bouton en coordonnées écran, pour le hit-test au clic/tap.
+function getPreMenuButtonCircle(btn, containT) {
+  const destW = BUTTON_DISPLAY_W_FOND * containT.scale;
+  return {
+    cx: containT.dx + btn.anchorX * containT.scale,
+    cy: containT.dy + btn.anchorY * containT.scale,
+    radius: destW * BUTTON_HIT_RADIUS_RATIO,
+  };
+}
+
 function drawPreMenuButton(btn, containT) {
   const destW = BUTTON_DISPLAY_W_FOND * containT.scale;
   const destH = destW * (btn.src.h / btn.src.w);

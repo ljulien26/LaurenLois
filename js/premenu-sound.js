@@ -52,25 +52,6 @@ function playActivationSound() {
   activationSound.play().catch(() => {});
 }
 
-// Les navigateurs bloquent tout son tant qu'aucun geste utilisateur n'a eu
-// lieu sur la page : on "débloque" les trois sons (lecture/pause muette) dès
-// le premier tap, avant de lancer la marche automatique de Loïs.
-function unlockAudio() {
-  [walkSound, buttonSound, activationSound].forEach((audio) => {
-    const wasMuted = audio.muted;
-    audio.muted = true;
-    audio.play()
-      .then(() => {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.muted = wasMuted;
-      })
-      .catch(() => {
-        audio.muted = wasMuted;
-      });
-  });
-}
-
 // ---------- Musique de fond du PreMenu ----------
 // Démarre au premier tap (geste utilisateur requis) et joue en boucle tant
 // qu'on est dans la scène ; s'éteint en fondu dès que la télé s'allume.
@@ -96,3 +77,8 @@ function fadeOutPreMenuMusic(dt) {
     preMenuMusic.currentTime = 0;
   }
 }
+
+// preMenuMusic démarre pendant le tap lui-même : pas besoin de l'amorcer.
+registerAudioForUnlock(walkSound);
+registerAudioForUnlock(buttonSound);
+registerAudioForUnlock(activationSound);

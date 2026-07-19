@@ -222,6 +222,9 @@ function drawBlackoutScene(assets, elapsed, dt) {
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
   } else if (elapsed < fadeInEnd) {
+    // La musique du menu démarre dès que son décor commence à apparaître (un
+    // peu avant la bascule sur la scène menu elle-même).
+    startMenuMusic();
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
     ctx.save();

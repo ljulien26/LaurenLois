@@ -36,7 +36,7 @@ function updateWalkSound(dt, anyWalking) {
 
 // ---------- Son de bouton ----------
 
-const buttonSound = new Audio('Assets/Sound/PreMenu/2.Button.mp3');
+const buttonSound = new Audio('Assets/Sound/2.Button.mp3');
 
 function playButtonSound() {
   buttonSound.currentTime = 0;
@@ -45,7 +45,7 @@ function playButtonSound() {
 
 // ---------- Son d'activation (joué une fois que les 2 boutons sont activés) ----------
 
-const activationSound = new Audio('Assets/Sound/PreMenu/4.ActivationTV.mp3');
+const activationSound = new Audio('Assets/Sound/4.ActivationTV.mp3');
 
 function playActivationSound() {
   activationSound.currentTime = 0;
@@ -59,7 +59,7 @@ function playActivationSound() {
 const PREMENU_MUSIC_VOLUME = 0.5;
 const PREMENU_MUSIC_FADE_MS = 600;
 
-const preMenuMusic = new Audio('Assets/Sound/PreMenu/3.MusiqueFondPreMenu.wav');
+const preMenuMusic = new Audio('Assets/Sound/3.MusiqueFondPreMenu.wav');
 preMenuMusic.loop = true;
 
 function startPreMenuMusic() {

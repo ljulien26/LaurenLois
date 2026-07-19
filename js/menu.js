@@ -169,7 +169,7 @@ function drawTitle(img, elapsed) {
 const BUTTON_TEXT = "Démarrer l'aventure";
 const BUTTON_ASPECT = 255 / 1349;
 
-const BUTTON_DELAY = TITLE_DELAY + TITLE_ZOOM_DURATION - 700; // apparaît pendant que le titre finit de se poser
+const BUTTON_DELAY = TITLE_DELAY + TITLE_ZOOM_DURATION - 300; // apparaît un peu plus tard, quand le titre est presque posé
 const BUTTON_ENTER_DURATION = 700;
 
 let buttonRect = null; // { x, y, w, h } en CSS px, recalculé chaque frame pour le hit-test

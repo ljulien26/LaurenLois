@@ -58,7 +58,7 @@ const TV_MAIN_PHASE_DURATION = TV_ON_DURATION - TV_TIMID_PHASE_DURATION;
 // ils sont plus fréquents — mais on garde un écart raisonnable pour éviter un
 // stroboscope trop agressif juste avant la coupure.
 const TV_GAP_START = 340;  // ms de statique entre deux flashs, au début
-const TV_GAP_END = 120;    // ms de statique entre deux flashs, à la fin
+const TV_GAP_END = 70;     // ms de statique entre deux flashs, à la fin (resserré)
 const TV_FLASH_DUR_START = 60;
 const TV_FLASH_DUR_END = 95;
 
@@ -76,15 +76,17 @@ function buildTvRampSequence(totalDuration) {
     const p = Math.min(t / totalDuration, 1); // 0 au début, 1 à la transition
     const jitter = 0.8 + Math.abs(Math.sin(n * 2.399)) * 0.4;
 
-    // Statique entre deux flashs, de plus en plus courte.
-    t += (TV_GAP_START + (TV_GAP_END - TV_GAP_START) * p) * jitter;
+    // Statique entre deux flashs, de plus en plus courte. Le resserrement est
+    // accentué sur la fin (p^2) : les flashs se rapprochent nettement juste
+    // avant la coupure, pour un final plus flashy.
+    const gapP = p * p;
+    t += (TV_GAP_START + (TV_GAP_END - TV_GAP_START) * gapP) * jitter;
     steps.push({ end: t, frame: n % 2 === 0 ? TV_STATIC_DENSE : TV_STATIC_LIGHT });
 
-    // Flash : la probabilité qu'il soit fort monte avec la progression. Le
-    // facteur 1.3 fait apparaître les premiers flashs forts dès le milieu,
-    // sinon ils débarquent tous d'un coup à la toute fin.
+    // Flash : la probabilité qu'il soit fort monte avec la progression, et la
+    // quasi-totalité des flashs deviennent forts sur la fin.
     t += TV_FLASH_DUR_START + (TV_FLASH_DUR_END - TV_FLASH_DUR_START) * p;
-    const isStrong = Math.abs(Math.sin(n * 1.7)) < p * 0.9;
+    const isStrong = Math.abs(Math.sin(n * 1.7)) < p * 1.05;
     steps.push({ end: t, frame: isStrong ? TV_FLASH_STRONG : TV_FLASH_WEAK });
 
     n++;

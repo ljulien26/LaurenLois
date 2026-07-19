@@ -22,7 +22,7 @@ function getPlaceContainT(assets) {
 
 // ---------- Feuilles qui tombent ----------
 
-const LEAF_COUNT = 14;
+const LEAF_COUNT = 24;
 const LEAF_COLORS = ['#c8952f', '#d9a83c', '#a87b28', '#e0b84e'];
 const LEAF_LAND_MIN = 398; // bande du trottoir (coords 1.png) où elles se posent
 const LEAF_LAND_MAX = 442;
@@ -176,15 +176,16 @@ function laurenNearLock() {
 function drawPlaceLockHint(containT, elapsed) {
   if (!placeEntered || lockActive) return;
   const s = getPlaceLockScreen(containT);
-  const pulse = 0.16 + Math.sin(elapsed / 380) * 0.1; // ~0.06 → 0.26 : discret
+  const pulse = 0.22 + Math.sin(elapsed / 380) * 0.13; // légèrement plus marqué
   ctx.save();
   ctx.globalAlpha = pulse;
   ctx.globalCompositeOperation = 'lighter';
-  const glow = ctx.createRadialGradient(s.cx, s.cy, 0, s.cx, s.cy, s.r * 1.2);
-  glow.addColorStop(0, 'rgba(255, 226, 150, 0.75)');
+  const r = s.r * 1.4;
+  const glow = ctx.createRadialGradient(s.cx, s.cy, 0, s.cx, s.cy, r);
+  glow.addColorStop(0, 'rgba(255, 226, 150, 0.9)');
   glow.addColorStop(1, 'rgba(255, 226, 150, 0)');
   ctx.fillStyle = glow;
-  ctx.fillRect(s.cx - s.r * 1.2, s.cy - s.r * 1.2, s.r * 2.4, s.r * 2.4);
+  ctx.fillRect(s.cx - r, s.cy - r, r * 2, r * 2);
   ctx.restore();
 }
 

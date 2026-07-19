@@ -281,6 +281,20 @@ canvas.addEventListener('pointerdown', (evt) => {
   }
 });
 
+// TEST (temporaire) : quand on démarre directement au menu, le pré-menu — qui
+// débloque normalement le son — est sauté. On débloque donc le son au premier
+// clic sur le menu et on (re)lance la musique. À retirer avec le démarrage
+// direct au menu.
+let menuAudioPrimed = false;
+function primeMenuAudioOnce() {
+  if (scene !== 'menu' || menuAudioPrimed) return;
+  menuAudioPrimed = true;
+  unlockAudio();
+  setTimeout(() => { if (scene === 'menu') { menuMusicStarted = false; startMenuMusic(); } }, 200);
+}
+canvas.addEventListener('pointerdown', primeMenuAudioOnce);
+window.addEventListener('keydown', primeMenuAudioOnce);
+
 canvas.addEventListener('pointerup', (evt) => {
   if (scene !== 'menu') return;
   if (buttonPressed && isInsideButton(getPointerPos(evt))) {

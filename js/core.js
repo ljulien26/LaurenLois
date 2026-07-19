@@ -405,7 +405,9 @@ function drawTypingQuestion(panelImg, panel, text, startedAt, manageSound = true
 // Chaque scène est dessinée par une fonction définie dans son propre fichier
 // (premenu.js, menu.js, place.js, ...).
 
-let scene = 'premenu';
+// TEST (temporaire) : on démarre directement au menu. Le pré-menu reste dans
+// le jeu ; remettre 'premenu' ici pour reprendre depuis le début.
+let scene = 'menu';
 let startTime = null; // début de la scène courante (remis à zéro à chaque changement de scène)
 let lastTimestamp = 0;
 

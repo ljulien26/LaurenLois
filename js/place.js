@@ -242,9 +242,21 @@ function handlePlaceDown(evt) {
   const dx = pos.x - s.cx;
   const dy = pos.y - s.cy;
   if (dx * dx + dy * dy <= s.r * s.r && laurenNearLock()) {
+    playClickSound();
     openLock(onPlaceUnlock);
   }
 }
+
+// Curseur "main" quand on survole le cadenas cliquable (Lauren assez proche).
+canvas.addEventListener('pointermove', (evt) => {
+  if (scene !== 'place' || lockActive || !placeEntered || placePhase !== 'play' || !placeAssets) return;
+  const pos = getPointerPos(evt);
+  const s = getPlaceLockScreen(getPlaceContainT(placeAssets));
+  const dx = pos.x - s.cx;
+  const dy = pos.y - s.cy;
+  const over = dx * dx + dy * dy <= s.r * s.r && laurenNearLock();
+  canvas.style.cursor = over ? 'pointer' : 'default';
+});
 
 // ---------- Séquence de déverrouillage : anse qui saute → fermeture de
 // l'overlay → (chute du cadenas + ouverture des portes, en attente de calques).

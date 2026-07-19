@@ -177,6 +177,7 @@ function handleLockDown(evt) {
     lockDragWheel = w;
     lockDragPointerId = evt.pointerId;
     lockDragLastY = pos.y;
+    playClickSound();
   }
 }
 
@@ -202,6 +203,12 @@ canvas.addEventListener('pointerdown', (evt) => { if (lockActive) handleLockDown
 canvas.addEventListener('pointermove', (evt) => { if (lockActive) handleLockMove(evt); });
 canvas.addEventListener('pointerup', (evt) => { if (lockActive) handleLockUp(evt); });
 canvas.addEventListener('pointercancel', (evt) => { if (lockActive) handleLockUp(evt); });
+
+// Curseur "main" au survol des molettes / boutons du cadenas (comme un bouton).
+canvas.addEventListener('pointermove', (evt) => {
+  if (!lockActive) return;
+  canvas.style.cursor = lockHoverInteractive(getPointerPos(evt)) ? 'pointer' : 'default';
+});
 
 // --- Mise à jour ---
 
@@ -360,6 +367,7 @@ function drawLockScene(assets, elapsed, dt) {
   if (lockClosing && t.appear <= 0) {
     lockActive = false;
     lockClosing = false;
+    canvas.style.cursor = 'default';
     return;
   }
 
@@ -525,8 +533,10 @@ function handleHintsDown(pos) {
     if (pointInRect(pos, b.consulter)) {
       hintViewIndex = hintOfferIndex;
       hintOfferIndex = -1;
+      playClickSound();
     } else if (pointInRect(pos, b.refuser)) {
       hintOfferIndex = -1;
+      playClickSound();
     }
     return true;
   }
@@ -534,14 +544,33 @@ function handleHintsDown(pos) {
     const b = hintViewerButtons();
     if (b.suivant && pointInRect(pos, b.suivant)) {
       hintViewIndex++;
+      playClickSound();
     } else if (pointInRect(pos, b.fermer)) {
       hintViewIndex = -1;
+      playClickSound();
     }
     return true;
   }
   if (hintsUnlocked > 0 && pointInRect(pos, hintAccessButton())) {
     hintViewIndex = 0; // on commence toujours par l'indice 1
+    playClickSound();
     return true;
   }
   return false;
+}
+
+// Le pointeur est-il au-dessus d'un élément cliquable du cadenas (molette ou
+// bouton d'indice actuellement affiché) ? Sert à afficher le curseur "main".
+function lockHoverInteractive(pos) {
+  if (!lockActive || lockUnlocked) return false;
+  if (hintOfferIndex >= 0) {
+    const b = hintOfferButtons();
+    return pointInRect(pos, b.consulter) || pointInRect(pos, b.refuser);
+  }
+  if (hintViewIndex >= 0) {
+    const b = hintViewerButtons();
+    return pointInRect(pos, b.fermer) || (!!b.suivant && pointInRect(pos, b.suivant));
+  }
+  if (hintsUnlocked > 0 && pointInRect(pos, hintAccessButton())) return true;
+  return lockWheelAt(pos, getLockTransform()) !== -1;
 }

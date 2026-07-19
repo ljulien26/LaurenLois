@@ -244,14 +244,45 @@ function questionTypingDone(startedAt, text) {
   return questionCharsShown(startedAt, text) >= text.length;
 }
 
+// Taille de police commune à toutes les questions, calée sur celle de la 1re
+// question (café) pour un rendu homogène : on ne l'agrandit jamais.
+function questionFontPx() {
+  const w = Math.min(window.innerWidth * 0.42, 300) * uiSizeFactor();
+  const pillH = w / (1349 / 255);
+  return pillH * 0.34;
+}
+
+// Découpe un texte en lignes tenant dans maxWidth, à une taille de police
+// donnée (sans la modifier).
+function wrapTextAtFont(text, maxWidth, fs) {
+  ctx.font = `${fs}px 'PressStart2P'`;
+  const words = text.split(' ');
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const t = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(t).width > maxWidth && cur) { lines.push(cur); cur = w; }
+    else cur = t;
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 // Dessine un panneau de question (image) + son texte qui s'écrit peu à peu
-// (avec le son clavier). La mise en page (police, coupures) est calculée sur le
-// texte complet pour rester stable pendant la frappe. Renvoie true une fois
-// tout le texte affiché.
+// (avec le son clavier), à une taille de police FIXE identique pour toutes les
+// questions. Réduit seulement si le texte déborde en hauteur. Renvoie true une
+// fois tout le texte affiché.
 function drawTypingQuestion(panelImg, panel, text, startedAt) {
   ctx.drawImage(panelImg, 0, 0, panelImg.width, panelImg.height, panel.x, panel.y, panel.w, panel.h);
 
-  const layout = wrapPixelQuestion(text, panel.w * 0.76, panel.h * 0.17);
+  let fs = questionFontPx();
+  let lines = wrapTextAtFont(text, panel.w * 0.8, fs);
+  const maxLines = Math.max(2, Math.floor((panel.h * 0.74) / (fs * 1.5)));
+  while (lines.length > maxLines && fs > 6) {
+    fs *= 0.9;
+    lines = wrapTextAtFont(text, panel.w * 0.8, fs);
+  }
+
   const shown = questionCharsShown(startedAt, text);
   const done = shown >= text.length;
   if (startedAt != null && !done) playKeyboardTick();
@@ -259,11 +290,11 @@ function drawTypingQuestion(panelImg, panel, text, startedAt) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#2a1a0a';
-  ctx.font = `${layout.fs}px 'PressStart2P'`;
-  const lineH = panel.h * 0.24;
+  ctx.font = `${fs}px 'PressStart2P'`;
+  const lineH = fs * 1.6;
   const blinkOn = Math.floor(performance.now() / 400) % 2 === 0;
   let remaining = shown;
-  layout.lines.forEach((line, i) => {
+  lines.forEach((line, i) => {
     let str;
     let caret = '';
     if (remaining >= line.length) {
@@ -273,7 +304,7 @@ function drawTypingQuestion(panelImg, panel, text, startedAt) {
       if (!done && blinkOn && remaining >= 0) caret = '_';
     }
     remaining -= line.length + 1; // +1 pour l'espace consommé à la coupure
-    const cy = panel.y + panel.h / 2 + (i - (layout.lines.length - 1) / 2) * lineH;
+    const cy = panel.y + panel.h / 2 + (i - (lines.length - 1) / 2) * lineH;
     ctx.fillText(str + caret, panel.x + panel.w / 2, cy);
   });
   return done;

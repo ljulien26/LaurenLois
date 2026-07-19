@@ -26,7 +26,7 @@ const PLACE3_LAUREN_MAX_X = 905;
 // cliquable si Lauren est assez proche.
 const PLACE3_TICKET_X = 690;
 const PLACE3_TICKET_GROUND_Y = 486;
-const PLACE3_TICKET_W = 92;   // largeur d'affichage (coords design)
+const PLACE3_TICKET_W = 46;   // largeur d'affichage (coords design) — deux fois plus petit
 const PLACE3_TICKET_START_Y = -40;
 const PLACE3_TICKET_FALL_MS = 1100;
 const PLACE3_TICKET_REACH = 160;
@@ -316,7 +316,8 @@ function handlePlace3Down(evt) {
     const w = PLACE3_TICKET_W * containT.scale;
     const cx = containT.dx + PLACE3_TICKET_X * containT.scale;
     const cy = containT.dy + PLACE3_TICKET_GROUND_Y * containT.scale;
-    if (Math.abs(pos.x - cx) <= w * 0.7 && Math.abs(pos.y - cy) <= w * 0.6) {
+    // Zone de clic généreuse (le ticket est petit) : environ la taille du halo.
+    if (Math.abs(pos.x - cx) <= w * 1.3 && Math.abs(pos.y - cy) <= w * 1.1) {
       place3Phase = 'scratch';
       place3QuestionStart = performance.now();
     }

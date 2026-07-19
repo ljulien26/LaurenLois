@@ -176,13 +176,13 @@ function laurenNearLock() {
 function drawPlaceLockHint(containT, elapsed) {
   if (!placeEntered || lockActive) return;
   const s = getPlaceLockScreen(containT);
-  const pulse = 0.22 + Math.sin(elapsed / 380) * 0.13; // légèrement plus marqué
+  const pulse = 0.19 + Math.sin(elapsed / 380) * 0.11; // entre-deux : discret mais repérable
   ctx.save();
   ctx.globalAlpha = pulse;
   ctx.globalCompositeOperation = 'lighter';
-  const r = s.r * 1.4;
+  const r = s.r * 1.3;
   const glow = ctx.createRadialGradient(s.cx, s.cy, 0, s.cx, s.cy, r);
-  glow.addColorStop(0, 'rgba(255, 226, 150, 0.9)');
+  glow.addColorStop(0, 'rgba(255, 226, 150, 0.82)');
   glow.addColorStop(1, 'rgba(255, 226, 150, 0)');
   ctx.fillStyle = glow;
   ctx.fillRect(s.cx - r, s.cy - r, r * 2, r * 2);

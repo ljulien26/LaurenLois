@@ -326,9 +326,13 @@ function drawPlace3Tickets(assets) {
   dimBackdrop();
   const layout = place3Layout();
 
-  // La question s'écrit d'abord (machine à écrire + son clavier).
-  const qDone = drawTypingQuestion(assets.quizPanel, layout.panel, PLACE3_QUESTION, place3QuestionStart);
-  if (!qDone) return;
+  // La question s'écrit d'abord (le son clavier est géré ici, pas par
+  // drawTypingQuestion, pour couvrir aussi l'écriture des tickets ensuite).
+  const qDone = drawTypingQuestion(assets.quizPanel, layout.panel, PLACE3_QUESTION, place3QuestionStart, false);
+  if (!qDone) {
+    setKeyboardTyping(place3QuestionStart != null); // question en cours d'écriture
+    return;
+  }
 
   // Puis chaque ticket apparaît à son tour, titre écrit caractère par caractère.
   const typing = place3TicketsTyping();

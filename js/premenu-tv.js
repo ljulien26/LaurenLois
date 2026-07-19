@@ -26,7 +26,7 @@ const BLACKOUT_FADE_IN_DURATION = 700;
 const TV_DISPLAY_W_FOND = 367;
 const TV_ASPECT = 350 / 600;   // dimensions natives des frames (600x350)
 const TV_ANCHOR_X = 479;       // centré au-dessus des boutons, repéré dans Fond.png (960x540)
-const TV_ANCHOR_Y = 268;
+const TV_ANCHOR_Y = 248;       // un peu plus haut dans la scène
 
 const TV_STATIC_LIGHT = 0;
 const TV_STATIC_DENSE = 1;

@@ -298,7 +298,10 @@ function wrapTextAtFont(text, maxWidth, fs) {
 // (avec le son clavier), à une taille de police FIXE identique pour toutes les
 // questions. Réduit seulement si le texte déborde en hauteur. Renvoie true une
 // fois tout le texte affiché.
-function drawTypingQuestion(panelImg, panel, text, startedAt) {
+// manageSound=false : la scène gère elle-même le son clavier (utile quand
+// d'autres éléments s'écrivent après la question, ex. les tickets à gratter),
+// pour éviter deux appels contradictoires par frame.
+function drawTypingQuestion(panelImg, panel, text, startedAt, manageSound = true) {
   ctx.drawImage(panelImg, 0, 0, panelImg.width, panelImg.height, panel.x, panel.y, panel.w, panel.h);
 
   let fs = firstQuestionFontPx();
@@ -311,7 +314,7 @@ function drawTypingQuestion(panelImg, panel, text, startedAt) {
 
   const shown = questionCharsShown(startedAt, text);
   const done = shown >= text.length;
-  setKeyboardTyping(startedAt != null && !done);
+  if (manageSound) setKeyboardTyping(startedAt != null && !done);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

@@ -50,15 +50,42 @@ let place2PickedCorrect = false;
 
 let place2Assets = null;
 
+// Si au bout d'une minute la joueuse n'a pas progressé (toujours en train de
+// marcher), on affiche un message explicite « va tout à droite » + son notif.
+const PLACE2_GO_RIGHT_DELAY = 60000;
+let place2HintNotified = false;
+
 function place2Reset() {
   place2Phase = 'enter';
   place2TitleRevealStart = -1;
   place2ExitStart = -1;
   place2Picked = -1;
+  place2HintNotified = false;
   place2Lauren.x = PLACE2_LAUREN_START_X;
   place2Lauren.facing = 'right'; // tournée vers le café, prête à avancer
   place2Lauren.walking = false;
   place2Lauren.targetX = null;
+}
+
+// Message d'aide affiché après un long moment sans progresser.
+function drawPlace2GoRightMessage() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const pulse = 0.6 + Math.sin(performance.now() / 400) * 0.4;
+  const text = 'Va tout à droite →';
+  ctx.save();
+  ctx.font = `${Math.round(h * 0.038)}px 'PressStart2P'`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const boxW = ctx.measureText(text).width + h * 0.07;
+  const boxH = h * 0.09;
+  const cx = w / 2, cy = h * 0.13;
+  roundRectPath(cx - boxW / 2, cy - boxH / 2, boxW, boxH, boxH * 0.28);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+  ctx.fill();
+  ctx.globalAlpha = pulse;
+  ctx.fillStyle = '#ffe08a';
+  ctx.fillText(text, cx, cy);
+  ctx.restore();
 }
 
 // État "machine à écrire" à l'instant courant : combien de caractères de la
@@ -329,10 +356,10 @@ function drawPlace2ExitHint() {
   const pulse = 0.5 + Math.sin(performance.now() / 500) * 0.5; // 0 → 1
 
   ctx.save();
-  const bandW = w * 0.22;
+  const bandW = w * 0.26;
   const grad = ctx.createLinearGradient(w - bandW, 0, w, 0);
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
-  grad.addColorStop(1, `rgba(0, 0, 0, ${0.3 + 0.28 * pulse})`);
+  grad.addColorStop(1, `rgba(0, 0, 0, ${0.45 + 0.3 * pulse})`);
   ctx.fillStyle = grad;
   ctx.fillRect(w - bandW, 0, bandW, h);
   ctx.restore();
@@ -358,6 +385,11 @@ function drawPlace2Scene(assets, elapsed, dt) {
   // nouveau à l'exploration (vers la sortie). Masqué pendant la question.
   if (place2Phase === 'enter' || place2Phase === 'explore') {
     drawPlace2ExitHint();
+    // Au bout d'une minute sans avoir progressé : message explicite + notif.
+    if (elapsed >= PLACE2_GO_RIGHT_DELAY) {
+      if (!place2HintNotified) { place2HintNotified = true; playNotifSound(); }
+      drawPlace2GoRightMessage();
+    }
   }
 
   if (place2Phase === 'question') {

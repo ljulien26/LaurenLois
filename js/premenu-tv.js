@@ -7,12 +7,11 @@
 // drawPreMenuWorld) et premenu-sound.js (fadeOutPreMenuMusic).
 // ============================================================
 
-// Durée mesurée précisément (via l'API média) du son d'activation. La
-// On cale la fin du son sur l'écran noir : la télé flashe jusqu'à ce que le
-// fondu au noir démarre, et ce fondu (BLACKOUT_FADE_OUT_DURATION = 550 ms)
-// se termine pile quand le son se coupe. Donc tvOn dure (son − 550 ms).
+// Durée mesurée précisément (via l'API média) du son d'activation. La télé
+// flashe pendant TOUTE la durée du son (le fondu au noir vient seulement
+// après), pour que le climax dure aussi longtemps que le son d'activation.
 const ACTIVATION_SOUND_DURATION = 5720;
-const TV_ON_DURATION = ACTIVATION_SOUND_DURATION - 550;
+const TV_ON_DURATION = ACTIVATION_SOUND_DURATION;
 
 // Coupure classique : la scène PreMenu s'assombrit, courte pause au noir,
 // puis le Menu apparaît en fondu depuis le noir. Un peu plus lente pour
@@ -58,7 +57,7 @@ const TV_MAIN_PHASE_DURATION = TV_ON_DURATION - TV_TIMID_PHASE_DURATION;
 // ils sont plus fréquents — mais on garde un écart raisonnable pour éviter un
 // stroboscope trop agressif juste avant la coupure.
 const TV_GAP_START = 340;  // ms de statique entre deux flashs, au début
-const TV_GAP_END = 70;     // ms de statique entre deux flashs, à la fin (resserré)
+const TV_GAP_END = 55;     // ms de statique entre deux flashs, à la fin (très resserré)
 const TV_FLASH_DUR_START = 60;
 const TV_FLASH_DUR_END = 95;
 
@@ -86,7 +85,7 @@ function buildTvRampSequence(totalDuration) {
     // Flash : la probabilité qu'il soit fort monte avec la progression, et la
     // quasi-totalité des flashs deviennent forts sur la fin.
     t += TV_FLASH_DUR_START + (TV_FLASH_DUR_END - TV_FLASH_DUR_START) * p;
-    const isStrong = Math.abs(Math.sin(n * 1.7)) < p * 1.05;
+    const isStrong = Math.abs(Math.sin(n * 1.7)) < p * 1.2;
     steps.push({ end: t, frame: isStrong ? TV_FLASH_STRONG : TV_FLASH_WEAK });
 
     n++;
@@ -221,12 +220,12 @@ function drawBlackoutScene(assets, elapsed, dt) {
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
     ctx.restore();
   } else if (elapsed < holdEnd) {
+    // La musique du menu démarre pendant l'écran noir, avant même que le décor
+    // du menu ne commence à apparaître.
+    startMenuMusic();
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
   } else if (elapsed < fadeInEnd) {
-    // La musique du menu démarre dès que son décor commence à apparaître (un
-    // peu avant la bascule sur la scène menu elle-même).
-    startMenuMusic();
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
     ctx.save();

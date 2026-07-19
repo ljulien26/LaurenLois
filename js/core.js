@@ -244,6 +244,12 @@ notifSound.volume = 0.6;
 registerAudioForUnlock(notifSound);
 function playNotifSound() { notifSound.currentTime = 0; notifSound.play().catch(() => {}); }
 
+// Clic d'interface (ex. bouton « Démarrer l'aventure »).
+const clickSound = new Audio('Assets/Sound/9.Click.mp3');
+clickSound.volume = 0.6;
+registerAudioForUnlock(clickSound);
+function playClickSound() { clickSound.currentTime = 0; clickSound.play().catch(() => {}); }
+
 // active=true : l'écriture est en cours, le son tourne ; active=false : on
 // l'arrête net (le clip est long, il ne doit surtout pas traîner une fois la
 // question entièrement écrite).

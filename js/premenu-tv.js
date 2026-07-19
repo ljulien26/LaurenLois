@@ -194,10 +194,17 @@ function drawTvOnScene(assets, elapsed, dt) {
   drawBackgroundContain(assets.preMenuFond, containT);
   drawBothPreMenuButtons(containT);
   drawBothCharacters(assets, containT);
-  drawTvScreen(assets, containT, elapsed);
+
+  // On anime la télé sur la position RÉELLE du son d'activation : les flashs
+  // (et surtout le dernier) sont ainsi parfaitement calés sur le son, quels que
+  // soient le léger décalage de démarrage ou les micro-variations de lecture.
+  // Repli sur le temps de scène si le son n'a pas démarré (cas très rare).
+  const sndTime = activationSound.currentTime > 0 ? activationSound.currentTime * 1000 : elapsed;
+  drawTvScreen(assets, containT, sndTime);
   fadeOutPreMenuMusic(dt);
 
-  if (elapsed >= TV_ON_DURATION) {
+  // Fin dès que le son est terminé (repli de sécurité sur le temps de scène).
+  if (activationSound.ended || sndTime >= TV_ON_DURATION || elapsed >= TV_ON_DURATION + 900) {
     scene = 'blackout';
     startTime = null;
   }

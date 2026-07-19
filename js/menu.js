@@ -277,6 +277,7 @@ function isInsideButton(pos) {
 canvas.addEventListener('pointerdown', (evt) => {
   if (scene === 'menu' && isInsideButton(getPointerPos(evt))) {
     buttonPressed = true;
+    playClickSound();
   }
 });
 

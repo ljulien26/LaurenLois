@@ -158,6 +158,7 @@ window.addEventListener('keyup', (e) => heldKeys.delete(e.key.toLowerCase()));
 // chats, pour tester vite. ---
 window.addEventListener('keydown', (e) => {
   if (!e.shiftKey) return;
+  if (['Digit3', 'Digit4', 'Digit5', 'Digit6'].includes(e.code)) setKeyboardTyping(false);
   if (e.code === 'Digit3') { place3Reset(); scene = 'place3'; startTime = null; }
   else if (e.code === 'Digit4') { place4Reset(); scene = 'place4'; startTime = null; }
   else if (e.code === 'Digit5') { place5Reset(); scene = 'place5'; startTime = null; }
@@ -217,20 +218,24 @@ function unlockAudio() {
 }
 
 // ---------- Questions "machine à écrire" + son clavier ----------
-// Toute question du jeu s'écrit caractère par caractère, avec un petit son de
-// clavier régulier (fichier partagé). playKeyboardTick() se limite tout seul à
-// une cadence agréable, quelle que soit la fréquence d'appel.
+// Toute question du jeu s'écrit caractère par caractère. Le son clavier (un
+// clip continu, partagé) tourne pendant l'écriture via setKeyboardTyping() et
+// s'arrête net une fois la question entièrement affichée.
 const keyboardSound = new Audio('Assets/Sound/5.Son Clavier.mp3');
 keyboardSound.volume = 0.5;
+keyboardSound.loop = true; // clip de frappe continu : il tourne pendant l'écriture
 registerAudioForUnlock(keyboardSound);
-let lastKeyTickTime = 0;
 
-function playKeyboardTick() {
-  const now = performance.now();
-  if (now - lastKeyTickTime < 55) return;
-  lastKeyTickTime = now;
-  keyboardSound.currentTime = 0;
-  keyboardSound.play().catch(() => {});
+// active=true : l'écriture est en cours, le son tourne ; active=false : on
+// l'arrête net (le clip est long, il ne doit surtout pas traîner une fois la
+// question entièrement écrite).
+function setKeyboardTyping(active) {
+  if (active) {
+    if (keyboardSound.paused) keyboardSound.play().catch(() => {});
+  } else if (!keyboardSound.paused) {
+    keyboardSound.pause();
+    keyboardSound.currentTime = 0;
+  }
 }
 
 const QUESTION_CHAR_MS = 42; // ms par caractère
@@ -285,7 +290,7 @@ function drawTypingQuestion(panelImg, panel, text, startedAt) {
 
   const shown = questionCharsShown(startedAt, text);
   const done = shown >= text.length;
-  if (startedAt != null && !done) playKeyboardTick();
+  setKeyboardTyping(startedAt != null && !done);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

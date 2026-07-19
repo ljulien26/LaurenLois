@@ -209,10 +209,9 @@ function handlePlace5Down(evt) {
 window.addEventListener('keydown', (e) => {
   if (scene !== 'place5' || !place5CanAnswer()) return;
   if (e.key >= '0' && e.key <= '9') {
-    if (place5Input.length < 4) { place5Input += e.key; playKeyboardTick(); }
+    if (place5Input.length < 4) place5Input += e.key;
   } else if (e.key === 'Backspace') {
     place5Input = place5Input.slice(0, -1);
-    playKeyboardTick();
     e.preventDefault();
   } else if (e.key === 'Enter') {
     place5Validate();

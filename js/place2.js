@@ -200,9 +200,10 @@ function drawPlace2Question(assets) {
     panel.x, panel.y, panel.w, panel.h);
 
   const typing = place2Typing();
-  // Son clavier tant que la question ou les réponses sont en train de s'écrire.
+  // Son clavier tant que la question ou les réponses sont en train de s'écrire ;
+  // il s'arrête net dès que tout est affiché.
   const allTyped = typing.qShown >= typing.qFull && typing.answers.every((a) => a.full);
-  if (!allTyped) playKeyboardTick();
+  setKeyboardTyping(!allTyped);
   const fontPx = place2TextFontPx();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -326,6 +327,40 @@ function updatePlace2Answer() {
 const PLACE2_FADE_IN = 500;
 const PLACE2_EXIT_FADE = 900;
 
+// Une fois la question résolue (phase 'explore'), un halo sombre pulsé sur le
+// bord droit + des chevrons indiquent qu'il faut partir vers la droite (sortie).
+function drawPlace2ExitHint() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const pulse = 0.5 + Math.sin(performance.now() / 500) * 0.5; // 0 → 1
+
+  ctx.save();
+  // halo noir dégradé sur le bord droit
+  const bandW = w * 0.22;
+  const grad = ctx.createLinearGradient(w - bandW, 0, w, 0);
+  grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(1, `rgba(0, 0, 0, ${0.3 + 0.28 * pulse})`);
+  ctx.fillStyle = grad;
+  ctx.fillRect(w - bandW, 0, bandW, h);
+
+  // chevrons ">" clignotants
+  ctx.globalAlpha = 0.55 + 0.45 * pulse;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(3, h * 0.009);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const s = h * 0.045;
+  const cx = w * 0.94, cy = h * 0.5;
+  for (let i = 0; i < 2; i++) {
+    const ox = i * s * 1.1;
+    ctx.beginPath();
+    ctx.moveTo(cx - s + ox, cy - s);
+    ctx.lineTo(cx + ox, cy);
+    ctx.lineTo(cx - s + ox, cy + s);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawPlace2Scene(assets, elapsed, dt) {
   place2Assets = assets;
   const containT = getPlace2ContainT(assets);
@@ -341,6 +376,10 @@ function drawPlace2Scene(assets, elapsed, dt) {
   // Indice clavier : à l'arrivée (jusqu'au milieu) puis à l'exploration.
   if (place2Phase === 'enter' || place2Phase === 'explore') {
     drawKeyboardMoveHint();
+  }
+  // Après la bonne réponse : halo sombre + chevrons vers la droite (sortie).
+  if (place2Phase === 'explore') {
+    drawPlace2ExitHint();
   }
 
   if (place2Phase === 'question') {

@@ -235,6 +235,7 @@ function updateLock(dt) {
   if (!lockUnlocked && lockDragWheel === -1 && lockCodeMatches()) {
     lockUnlocked = true;
     lockUnlockStart = performance.now();
+    playCorrectSound();
     if (lockOnUnlock) lockOnUnlock();
     return;
   }
@@ -258,6 +259,7 @@ function updateLock(dt) {
   if (lockSettleTimer >= LOCK_WRONG_HOLD) {
     lockWrongFlashed = true;
     lockRedFlashStart = performance.now();
+    playWrongSound();
     wrongAttempts++;
     // Nouvel indice débloqué au seuil atteint : on le propose aussitôt.
     if (hintsUnlocked < HINTS.length && wrongAttempts >= HINT_THRESHOLDS[hintsUnlocked]) {

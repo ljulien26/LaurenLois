@@ -32,7 +32,6 @@ const PLACE3_TICKET_START_DX = -55; // entre par la gauche : le vent le pousse v
 const PLACE3_TICKET_SWAY = 55;      // amplitude du balancement gauche-droite
 const PLACE3_TICKET_FALL_MS = 2800; // chute lente, comme portée par le vent
 const PLACE3_TICKET_REACH = 160;
-const PLACE3_ANSWER_GAP = 220;      // pause entre l'apparition de deux tickets
 
 // Résolution interne (fixe) de la couche à gratter de chaque ticket.
 const TICKET_TEX_W = 260;
@@ -249,20 +248,7 @@ function place3CoatingRevealed(coat) {
 // État "machine à écrire" des tickets : chacun apparaît à son tour après la
 // question, et son titre s'écrit caractère par caractère (comme au café).
 function place3TicketsTyping() {
-  const qEnd = place3QuestionStart != null
-    ? place3QuestionStart + PLACE3_QUESTION.length * QUESTION_CHAR_MS + PLACE3_ANSWER_GAP
-    : Infinity;
-  const t = performance.now() - qEnd;
-  let cursor = 0;
-  return PLACE3_TICKETS.map((title) => {
-    const start = cursor;
-    const len = title.length;
-    const visible = t >= start;
-    let shown = 0;
-    if (visible) shown = Math.min(Math.floor((t - start) / QUESTION_CHAR_MS), len);
-    cursor = start + len * QUESTION_CHAR_MS + PLACE3_ANSWER_GAP;
-    return { visible, shown, full: shown >= len };
-  });
+  return answersTyping(place3QuestionStart, PLACE3_QUESTION, PLACE3_TICKETS);
 }
 
 function place3AllTyped() {
@@ -414,9 +400,14 @@ function handlePlace3Up(evt) {
   const coat = place3Coatings[i];
   if (!coat.revealed && place3CoatingRevealed(coat) >= SCRATCH_REVEAL_FRACTION) {
     coat.revealed = true;
-    if (i === PLACE3_CORRECT && place3Phase === 'scratch') {
-      place3Phase = 'win';
-      place3WinStart = performance.now();
+    if (i === PLACE3_CORRECT) {
+      playCorrectSound();
+      if (place3Phase === 'scratch') {
+        place3Phase = 'win';
+        place3WinStart = performance.now();
+      }
+    } else {
+      playWrongSound();
     }
   }
 }

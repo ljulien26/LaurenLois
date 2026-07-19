@@ -134,19 +134,31 @@ function place4AnswerRects() {
   ];
 }
 
+function place4AllTyped() {
+  return questionTypingDone(place4QuestionStart, PLACE4_QUESTION) &&
+    answersTyping(place4QuestionStart, PLACE4_QUESTION, PLACE4_ANSWERS).every((a) => a.full);
+}
+
 function drawPlace4Question(assets) {
   dimBackdrop();
   const panel = place4PanelRect();
-  // La question s'écrit d'abord (machine à écrire + son clavier).
-  const done = drawTypingQuestion(assets.quizPanel, panel, PLACE4_QUESTION, place4QuestionStart);
-  if (!done) return; // les réponses n'apparaissent qu'une fois la question écrite
+  // Le son clavier est géré ici (pour couvrir aussi l'écriture des réponses).
+  const qDone = drawTypingQuestion(assets.quizPanel, panel, PLACE4_QUESTION, place4QuestionStart, false);
+  if (!qDone) {
+    setKeyboardTyping(place4QuestionStart != null); // question en cours d'écriture
+    return;
+  }
 
+  // Puis chaque réponse apparaît à son tour, écrite caractère par caractère.
+  const typing = answersTyping(place4QuestionStart, PLACE4_QUESTION, PLACE4_ANSWERS);
   const rects = place4AnswerRects();
   rects.forEach((r, i) => {
+    if (!typing[i].visible) return;
     let img = assets.menuBouton;
     if (place4Picked === i) img = place4PickedCorrect ? assets.quizGood : assets.quizBad;
-    drawAnswerPill(img, PLACE4_ANSWERS[i], r);
+    drawTypedAnswerPill(img, PLACE4_ANSWERS[i], r, typing[i]);
   });
+  setKeyboardTyping(!typing.every((a) => a.full));
 }
 
 // ---------- Porte du cinéma ----------
@@ -192,13 +204,14 @@ function handlePlace4Down(evt) {
 
   if (place4Phase === 'question') {
     if (place4Picked !== -1) return;
-    if (!questionTypingDone(place4QuestionStart, PLACE4_QUESTION)) return;
+    if (!place4AllTyped()) return;
     const rects = place4AnswerRects();
     for (let i = 0; i < 4; i++) {
       if (pointInRect(pos, rects[i])) {
         place4Picked = i;
         place4PickedStart = performance.now();
         place4PickedCorrect = i === PLACE4_CORRECT;
+        if (place4PickedCorrect) playCorrectSound(); else playWrongSound();
         return;
       }
     }

@@ -295,6 +295,7 @@ function handlePlace2Down(evt) {
       place2Picked = i;
       place2PickedStart = performance.now();
       place2PickedCorrect = i === PLACE2_CORRECT;
+      if (place2PickedCorrect) playCorrectSound(); else playWrongSound();
       return;
     }
   }

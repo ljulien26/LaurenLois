@@ -226,6 +226,17 @@ keyboardSound.volume = 0.5;
 keyboardSound.loop = true; // clip de frappe continu : il tourne pendant l'écriture
 registerAudioForUnlock(keyboardSound);
 
+// Sons de validation : bonne réponse / mauvaise réponse (quiz, cadenas, etc.).
+const correctSound = new Audio('Assets/Sound/6.Correct.mp3');
+correctSound.volume = 0.6;
+registerAudioForUnlock(correctSound);
+const wrongSound = new Audio('Assets/Sound/7.Faux.mp3');
+wrongSound.volume = 0.6;
+registerAudioForUnlock(wrongSound);
+
+function playCorrectSound() { correctSound.currentTime = 0; correctSound.play().catch(() => {}); }
+function playWrongSound() { wrongSound.currentTime = 0; wrongSound.play().catch(() => {}); }
+
 // active=true : l'écriture est en cours, le son tourne ; active=false : on
 // l'arrête net (le clip est long, il ne doit surtout pas traîner une fois la
 // question entièrement écrite).
@@ -275,6 +286,41 @@ function drawAnswerPill(img, text, r) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#201306';
+  ctx.fillText(text, r.x + r.w / 2, r.y + r.h / 2 + fs * 0.05);
+}
+
+const QUESTION_ANSWER_GAP = 220; // ms de pause entre l'apparition de deux réponses
+
+// État "machine à écrire" de réponses qui apparaissent une à une APRÈS la
+// question (qStart = début de l'écriture de la question). Renvoie pour chaque
+// réponse { visible, shown, full }.
+function answersTyping(qStart, questionText, answers) {
+  const qEnd = qStart != null
+    ? qStart + questionText.length * QUESTION_CHAR_MS + QUESTION_ANSWER_GAP
+    : Infinity;
+  const t = performance.now() - qEnd;
+  let cursor = 0;
+  return answers.map((a) => {
+    const start = cursor;
+    const len = a.length;
+    const visible = t >= start;
+    let shown = 0;
+    if (visible) shown = Math.min(Math.floor((t - start) / QUESTION_CHAR_MS), len);
+    cursor = start + len * QUESTION_CHAR_MS + QUESTION_ANSWER_GAP;
+    return { visible, shown, full: shown >= len };
+  });
+}
+
+// Comme drawAnswerPill, mais le texte s'écrit progressivement (typingState).
+function drawTypedAnswerPill(img, fullText, r, typingState) {
+  ctx.drawImage(img, 0, 0, img.width, img.height, r.x, r.y, r.w, r.h);
+  const fs = firstQuestionFontPx();
+  ctx.font = `${fs}px 'PressStart2P'`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#201306';
+  let text = fullText.slice(0, typingState.shown);
+  if (!typingState.full && Math.floor(performance.now() / 400) % 2 === 0) text += '_';
   ctx.fillText(text, r.x + r.w / 2, r.y + r.h / 2 + fs * 0.05);
 }
 

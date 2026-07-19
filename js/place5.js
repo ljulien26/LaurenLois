@@ -177,9 +177,11 @@ function place5Validate() {
   if (!isNaN(v) && Math.abs(v - PLACE5_ANSWER) <= PLACE5_TOLERANCE) {
     place5Phase = 'win';
     place5WinStart = performance.now();
+    playCorrectSound();
   } else {
     place5WrongUntil = performance.now() + 1100;
     place5Input = '';
+    playWrongSound();
   }
 }
 

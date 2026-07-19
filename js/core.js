@@ -216,6 +216,69 @@ function unlockAudio() {
   });
 }
 
+// ---------- Questions "machine à écrire" + son clavier ----------
+// Toute question du jeu s'écrit caractère par caractère, avec un petit son de
+// clavier régulier (fichier partagé). playKeyboardTick() se limite tout seul à
+// une cadence agréable, quelle que soit la fréquence d'appel.
+const keyboardSound = new Audio('Assets/Sound/5.Son Clavier.mp3');
+keyboardSound.volume = 0.5;
+registerAudioForUnlock(keyboardSound);
+let lastKeyTickTime = 0;
+
+function playKeyboardTick() {
+  const now = performance.now();
+  if (now - lastKeyTickTime < 55) return;
+  lastKeyTickTime = now;
+  keyboardSound.currentTime = 0;
+  keyboardSound.play().catch(() => {});
+}
+
+const QUESTION_CHAR_MS = 42; // ms par caractère
+
+function questionCharsShown(startedAt, text) {
+  if (startedAt == null) return 0;
+  return Math.min(text.length, Math.floor((performance.now() - startedAt) / QUESTION_CHAR_MS));
+}
+
+function questionTypingDone(startedAt, text) {
+  return questionCharsShown(startedAt, text) >= text.length;
+}
+
+// Dessine un panneau de question (image) + son texte qui s'écrit peu à peu
+// (avec le son clavier). La mise en page (police, coupures) est calculée sur le
+// texte complet pour rester stable pendant la frappe. Renvoie true une fois
+// tout le texte affiché.
+function drawTypingQuestion(panelImg, panel, text, startedAt) {
+  ctx.drawImage(panelImg, 0, 0, panelImg.width, panelImg.height, panel.x, panel.y, panel.w, panel.h);
+
+  const layout = wrapPixelQuestion(text, panel.w * 0.76, panel.h * 0.17);
+  const shown = questionCharsShown(startedAt, text);
+  const done = shown >= text.length;
+  if (startedAt != null && !done) playKeyboardTick();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#2a1a0a';
+  ctx.font = `${layout.fs}px 'PressStart2P'`;
+  const lineH = panel.h * 0.24;
+  const blinkOn = Math.floor(performance.now() / 400) % 2 === 0;
+  let remaining = shown;
+  layout.lines.forEach((line, i) => {
+    let str;
+    let caret = '';
+    if (remaining >= line.length) {
+      str = line;
+    } else {
+      str = line.slice(0, Math.max(0, remaining));
+      if (!done && blinkOn && remaining >= 0) caret = '_';
+    }
+    remaining -= line.length + 1; // +1 pour l'espace consommé à la coupure
+    const cy = panel.y + panel.h / 2 + (i - (layout.lines.length - 1) / 2) * lineH;
+    ctx.fillText(str + caret, panel.x + panel.w / 2, cy);
+  });
+  return done;
+}
+
 // ---------- Boucle de jeu ----------
 // Scènes : premenu -> tvOn -> blackout -> menu -> place -> place2 (café)
 //   -> place3 (Saint-Sernin) -> place4 (Cinéma façade) -> place5 (Cinéma

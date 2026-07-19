@@ -200,6 +200,9 @@ function drawPlace2Question(assets) {
     panel.x, panel.y, panel.w, panel.h);
 
   const typing = place2Typing();
+  // Son clavier tant que la question ou les réponses sont en train de s'écrire.
+  const allTyped = typing.qShown >= typing.qFull && typing.answers.every((a) => a.full);
+  if (!allTyped) playKeyboardTick();
   const fontPx = place2TextFontPx();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

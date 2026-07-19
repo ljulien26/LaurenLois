@@ -30,6 +30,7 @@ let place5Phase = 'enter';
 let place5Entered = false;
 let place5Assets = null;
 let place5Input = '';
+let place5QuestionStart = null;
 let place5WrongUntil = 0;
 let place5WinStart = 0;
 let place5ExitStart = 0;
@@ -42,6 +43,7 @@ function place5Reset() {
   place5Phase = 'enter';
   place5Entered = false;
   place5Input = '';
+  place5QuestionStart = null;
   place5WrongUntil = 0;
   place5Lauren.x = PLACE5_LAUREN_START_X;
   place5Lauren.facing = 'right';
@@ -94,6 +96,7 @@ function updatePlace5Lauren(dt) {
 
   if (place5Phase === 'play' && place5Lauren.x >= PLACE5_TRIGGER_X) {
     place5Phase = 'question';
+    place5QuestionStart = performance.now();
   }
 }
 
@@ -121,25 +124,17 @@ function place5ValidateRect() {
 function drawPlace5Question(assets) {
   dimBackdrop();
   const panel = place5PanelRect();
-  ctx.drawImage(assets.quizPanel, 0, 0, assets.quizPanel.width, assets.quizPanel.height,
-    panel.x, panel.y, panel.w, panel.h);
+  // La question s'écrit d'abord (machine à écrire + son clavier).
+  const done = drawTypingQuestion(assets.quizPanel, panel, PLACE5_QUESTION, place5QuestionStart);
+  if (!done) return; // le champ de saisie n'apparaît qu'une fois la question écrite
 
+  // sous-titre "à 5 près" (sous le panneau)
+  const box = place5InputRect();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#2a1a0a';
-  const q = wrapPixelQuestion(PLACE5_QUESTION, panel.w * 0.76, panel.h * 0.15);
-  const lineH = panel.h * 0.22;
-  q.lines.forEach((ln, i) => {
-    ctx.font = `${q.fs}px 'PressStart2P'`;
-    ctx.fillText(ln, panel.x + panel.w / 2, panel.y + panel.h * 0.42 + (i - (q.lines.length - 1) / 2) * lineH);
-  });
-  // sous-titre "à 5 près"
-  ctx.font = `${Math.round(panel.h * 0.09)}px 'PressStart2P'`;
-  ctx.fillStyle = '#6b4a25';
-  ctx.fillText('(réponse à 5 près)', panel.x + panel.w / 2, panel.y + panel.h * 0.8);
-
-  // champ de saisie
-  const box = place5InputRect();
+  ctx.font = `${Math.round(box.h * 0.32)}px 'PressStart2P'`;
+  ctx.fillStyle = '#ffe8c2';
+  ctx.fillText('(réponse à 5 près)', window.innerWidth / 2, box.y - box.h * 0.35);
   ctx.save();
   roundRectPath(box.x, box.y, box.w, box.h, box.h * 0.2);
   ctx.fillStyle = '#fff7ec';
@@ -201,18 +196,23 @@ function place5Win() {
 }
 
 // ---------- Entrées ----------
+function place5CanAnswer() {
+  return place5Phase === 'question' && questionTypingDone(place5QuestionStart, PLACE5_QUESTION);
+}
+
 function handlePlace5Down(evt) {
-  if (place5Phase !== 'question') return;
+  if (!place5CanAnswer()) return;
   if (pointInRect(getPointerPos(evt), place5ValidateRect())) place5Validate();
 }
 
-// Saisie au clavier (chiffres, effacement, Entrée) pendant la question.
+// Saisie au clavier (chiffres, effacement, Entrée) une fois la question écrite.
 window.addEventListener('keydown', (e) => {
-  if (scene !== 'place5' || place5Phase !== 'question') return;
+  if (scene !== 'place5' || !place5CanAnswer()) return;
   if (e.key >= '0' && e.key <= '9') {
-    if (place5Input.length < 4) place5Input += e.key;
+    if (place5Input.length < 4) { place5Input += e.key; playKeyboardTick(); }
   } else if (e.key === 'Backspace') {
     place5Input = place5Input.slice(0, -1);
+    playKeyboardTick();
     e.preventDefault();
   } else if (e.key === 'Enter') {
     place5Validate();

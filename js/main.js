@@ -42,6 +42,7 @@ Promise.all([
   loadImage('Assets/Jeu/Quiz/Boutons/Question.png'),
   loadImage('Assets/Jeu/Quiz/Boutons/Bonne réponse.png'),
   loadImage('Assets/Jeu/Quiz/Boutons/Mauvaise réponse.png'),
+  loadImage('Assets/Jeu/Ticket/1.png'), // ticket qui tombe (Saint-Sernin)
   // Mini-jeu de la pluie de chats : Lauren avec panier + chatons.
   loadImage('Assets/Persos/Lauren/Côté/WalkPanier/26.png'),
   loadImage('Assets/Persos/Lauren/Côté/WalkPanier/27.png'),
@@ -64,7 +65,7 @@ Promise.all([
     loisPress1, loisPress2,
     tvStaticLight, tvStaticDense, tvFlashWeak, tvFlashStrong, tvCalm,
     placeFond, place2Fond, place3Fond, place4Fond, place5Fond, cadenasClosed, cadenasOpen1,
-    quizPanel, quizGood, quizBad,
+    quizPanel, quizGood, quizBad, ticketImg,
     basket26, basket27, basket28, basket29,
     cat1, cat2, cat3,
   ]) => {
@@ -76,6 +77,7 @@ Promise.all([
     const assets = {
       menuFond, menuTitre, menuBouton, preMenuFond, placeFond, place2Fond,
       place3Fond, place4Fond, place5Fond,
+      ticketImg,
       laurenBasket: [basket26, basket27, basket28, basket29],
       cats: [cat1, cat2, cat3],
       cadenasFrames: [cadenasClosed, cadenasOpen1],

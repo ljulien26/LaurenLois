@@ -1,11 +1,13 @@
 // ============================================================
-// Décor 3 : Saint-Sernin (souvenir sur un banc). Lauren arrive par la gauche
-// et avance jusqu'au banc ; une question apparaît avec 4 tickets à gratter. Le
-// joueur gratte à la souris (clic maintenu + déplacement, gauche ou droit).
-// Sous la couche argentée se cache "VRAI" (le bon film) ou "FAUX". Quand le bon
-// ticket est révélé : "GAGNÉ", puis enchaînement sur le décor 4 (Cinéma Pathé).
+// Décor 3 : Saint-Sernin (souvenir sur un banc). Lauren arrive par la gauche.
+// Un ticket tombe du ciel et se pose au sol à côté du banc, entouré d'un léger
+// halo. Le joueur amène Lauren dessus et clique : la question s'écrit alors au
+// clavier (machine à écrire + son), puis 4 tickets à gratter apparaissent. On
+// gratte à la souris (clic maintenu, gauche ou droit) ; sous la couche argentée
+// se cache "VRAI" (le bon film) ou "FAUX". Bon ticket révélé -> "GAGNÉ", puis
+// enchaînement sur le décor 4 (Cinéma Pathé).
 //
-// Fond : Assets/Jeu/Places/3.png. Réutilise quizPanel (Question.png).
+// Fond : Assets/Jeu/Places/3.png. Ticket : Assets/Jeu/Ticket/1.png.
 // ============================================================
 
 // >>> CONTENU <<<
@@ -19,7 +21,15 @@ const PLACE3_LAUREN_START_X = -70;
 const PLACE3_LAUREN_READY_X = 150;
 const PLACE3_LAUREN_MIN_X = 60;
 const PLACE3_LAUREN_MAX_X = 905;
-const PLACE3_TRIGGER_X = 600; // arrivée près du banc : les tickets apparaissent
+
+// Ticket posé au sol à côté du banc (coords 3.png) : il tombe puis devient
+// cliquable si Lauren est assez proche.
+const PLACE3_TICKET_X = 690;
+const PLACE3_TICKET_GROUND_Y = 486;
+const PLACE3_TICKET_W = 92;   // largeur d'affichage (coords design)
+const PLACE3_TICKET_START_Y = -40;
+const PLACE3_TICKET_FALL_MS = 1100;
+const PLACE3_TICKET_REACH = 160;
 
 // Résolution interne (fixe) de la couche à gratter de chaque ticket.
 const TICKET_TEX_W = 260;
@@ -31,12 +41,15 @@ const place3Lauren = createCharacter(
   PLACE3_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, PLACE3_LAUREN_SCALE, 2
 );
 
-// Phases : 'enter' -> 'play' (avance) -> 'scratch' (tickets) -> 'win' -> 'exit'.
+// Phases : 'enter' -> 'play' (ticket au sol, cliquable) -> 'scratch' (question
+// + tickets) -> 'win' -> 'exit'.
 let place3Phase = 'enter';
 let place3Entered = false;
 let place3Assets = null;
 let place3Coatings = null;
 let place3Scratch = null;
+let place3TicketFallStart = 0;
+let place3QuestionStart = null;
 let place3WinStart = 0;
 let place3ExitStart = 0;
 
@@ -71,6 +84,8 @@ function place3Reset() {
   place3Phase = 'enter';
   place3Entered = false;
   place3Scratch = null;
+  place3QuestionStart = null;
+  place3TicketFallStart = performance.now();
   place3Coatings = [place3MakeCoating(), place3MakeCoating(), place3MakeCoating(), place3MakeCoating()];
   place3Lauren.x = PLACE3_LAUREN_START_X;
   place3Lauren.facing = 'right';
@@ -83,6 +98,46 @@ function getPlace3ContainT(assets) {
   const w = assets.place3Fond ? assets.place3Fond.width : 960;
   const h = assets.place3Fond ? assets.place3Fond.height : 540;
   return getContainTransform(w, h, window.innerWidth, window.innerHeight);
+}
+
+// ---------- Ticket qui tombe au sol ----------
+function place3TicketY() {
+  const t = Math.min((performance.now() - place3TicketFallStart) / PLACE3_TICKET_FALL_MS, 1);
+  const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
+  return PLACE3_TICKET_START_Y + (PLACE3_TICKET_GROUND_Y - PLACE3_TICKET_START_Y) * ease;
+}
+
+function place3TicketLanded() {
+  return performance.now() - place3TicketFallStart >= PLACE3_TICKET_FALL_MS;
+}
+
+function laurenNearTicket() {
+  return Math.abs(place3Lauren.x - PLACE3_TICKET_X) <= PLACE3_TICKET_REACH;
+}
+
+function drawPlace3GroundTicket(assets, containT) {
+  const img = assets.ticketImg;
+  const w = PLACE3_TICKET_W * containT.scale;
+  const h = w * (img.height / img.width);
+  const cx = containT.dx + PLACE3_TICKET_X * containT.scale;
+  const cy = containT.dy + place3TicketY() * containT.scale;
+
+  // halo pulsé une fois posé
+  if (place3TicketLanded()) {
+    const pulse = 0.2 + Math.sin(performance.now() / 360) * 0.12;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, pulse);
+    ctx.globalCompositeOperation = 'lighter';
+    const r = w * 0.9;
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    glow.addColorStop(0, 'rgba(255, 226, 150, 0.85)');
+    glow.addColorStop(1, 'rgba(255, 226, 150, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    ctx.restore();
+  }
+
+  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
 }
 
 // ---------- Déplacement de Lauren ----------
@@ -120,40 +175,46 @@ function updatePlace3Lauren(dt) {
       updateWalkSound(dt, true);
     }
   }
-
-  if (place3Phase === 'play' && place3Lauren.x >= PLACE3_TRIGGER_X) {
-    place3Phase = 'scratch';
-  }
 }
 
-// ---------- Tickets à gratter ----------
-function place3QuestionPanelRect() {
-  const w = Math.min(window.innerWidth * 0.66, 540) * uiSizeFactor();
-  const h = w / (1717 / 916);
-  return { x: window.innerWidth / 2 - w / 2, y: window.innerHeight * 0.04, w, h };
-}
+// ---------- Mise en page des tickets à gratter (tient dans l'écran) ----------
+function place3Layout() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const uf = uiSizeFactor();
 
-function place3TicketRects() {
-  const panel = place3QuestionPanelRect();
-  const w = Math.min(window.innerWidth * 0.34, 240) * uiSizeFactor();
-  const h = w * (TICKET_TEX_H / TICKET_TEX_W) * 1.4;
-  const gapX = w * 0.14;
-  const gapY = h * 0.24;
-  const cx = window.innerWidth / 2;
-  const topY = panel.y + panel.h + h * 0.28;
-  const leftX = cx - w - gapX / 2;
-  const rightX = cx + gapX / 2;
-  return [
-    { x: leftX, y: topY, w, h },
-    { x: rightX, y: topY, w, h },
-    { x: leftX, y: topY + h + gapY, w, h },
-    { x: rightX, y: topY + h + gapY, w, h },
-  ];
+  let panelW = Math.min(vw * 0.6, 520) * uf;
+  let panelH = panelW / (1717 / 916);
+  const maxPanelH = vh * 0.3;
+  if (panelH > maxPanelH) { panelH = maxPanelH; panelW = panelH * (1717 / 916); }
+  const panel = { x: vw / 2 - panelW / 2, y: vh * 0.03, w: panelW, h: panelH };
+
+  const areaTop = panel.y + panel.h + vh * 0.035;
+  const areaBottom = vh * 0.9; // laisse la place pour la consigne du bas
+  const rowGap = vh * 0.035;
+  let ticketH = Math.min((areaBottom - areaTop - rowGap) / 2, vh * 0.27);
+  let ticketW = ticketH * (260 / 150);
+  const maxW = vw * 0.44;
+  if (ticketW > maxW) { ticketW = maxW; ticketH = ticketW * (150 / 260); }
+  const colGap = Math.min(ticketW * 0.14, vw * 0.05);
+
+  const gridW = ticketW * 2 + colGap;
+  const gridH = ticketH * 2 + rowGap;
+  const startX = vw / 2 - gridW / 2;
+  const startY = areaTop + Math.max(0, (areaBottom - areaTop - gridH) / 2);
+  return {
+    panel,
+    rects: [
+      { x: startX, y: startY, w: ticketW, h: ticketH },
+      { x: startX + ticketW + colGap, y: startY, w: ticketW, h: ticketH },
+      { x: startX, y: startY + ticketH + rowGap, w: ticketW, h: ticketH },
+      { x: startX + ticketW + colGap, y: startY + ticketH + rowGap, w: ticketW, h: ticketH },
+    ],
+  };
 }
 
 function place3ScratchArea(rect) {
-  const th = rect.h * 0.34;
-  return { x: rect.x + rect.w * 0.06, y: rect.y + th, w: rect.w * 0.88, h: rect.h - th - rect.h * 0.08 };
+  const th = rect.h * 0.36; // bandeau du titre
+  return { x: rect.x + rect.w * 0.07, y: rect.y + th, w: rect.w * 0.86, h: rect.h - th - rect.h * 0.1 };
 }
 
 function place3CoatingRevealed(coat) {
@@ -166,69 +227,69 @@ function place3CoatingRevealed(coat) {
   return total ? cleared / total : 0;
 }
 
-function drawPlace3Tickets(assets) {
-  dimBackdrop();
+function drawPlace3Ticket(assets, r, i) {
+  // carte
+  ctx.save();
+  roundRectPath(r.x, r.y, r.w, r.h, r.w * 0.06);
+  ctx.fillStyle = '#fff7ec';
+  ctx.shadowColor = 'rgba(0,0,0,0.3)';
+  ctx.shadowBlur = 8;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#d9b48a';
+  ctx.stroke();
+  ctx.restore();
 
-  const panel = place3QuestionPanelRect();
-  ctx.drawImage(assets.quizPanel, 0, 0, assets.quizPanel.width, assets.quizPanel.height,
-    panel.x, panel.y, panel.w, panel.h);
+  // titre
+  const fs = fitButtonFontSize(PLACE3_TICKETS[i], r.w * 0.86, r.h * 0.13);
+  ctx.font = `${fs}px 'PressStart2P'`;
+  ctx.fillStyle = '#7a4a1a';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#2a1a0a';
-  const qLines = wrapPixelQuestion(PLACE3_QUESTION, panel.w * 0.76, panel.h * 0.15);
-  const lineH = panel.h * 0.24;
-  qLines.lines.forEach((ln, i) => {
-    ctx.font = `${qLines.fs}px 'PressStart2P'`;
-    ctx.fillText(ln, panel.x + panel.w / 2, panel.y + panel.h / 2 + (i - (qLines.lines.length - 1) / 2) * lineH);
-  });
+  ctx.fillText(PLACE3_TICKETS[i], r.x + r.w / 2, r.y + r.h * 0.18);
 
-  const rects = place3TicketRects();
-  rects.forEach((r, i) => {
-    ctx.save();
-    roundRectPath(r.x, r.y, r.w, r.h, r.w * 0.06);
-    ctx.fillStyle = '#fff7ec';
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#d9b48a';
-    ctx.stroke();
-    ctx.restore();
+  // révélation dessous
+  const sa = place3ScratchArea(r);
+  const win = i === PLACE3_CORRECT;
+  ctx.save();
+  roundRectPath(sa.x, sa.y, sa.w, sa.h, sa.w * 0.05);
+  ctx.clip();
+  ctx.fillStyle = win ? '#e9f8ee' : '#fbecec';
+  ctx.fillRect(sa.x, sa.y, sa.w, sa.h);
+  ctx.fillStyle = win ? '#1f9d55' : '#c0392b';
+  ctx.font = `${Math.round(sa.h * 0.4)}px 'PressStart2P'`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(win ? 'VRAI' : 'FAUX', sa.x + sa.w / 2, sa.y + sa.h / 2);
+  ctx.restore();
 
-    const fs = fitButtonFontSize(PLACE3_TICKETS[i], r.w * 0.86, r.h * 0.12);
-    ctx.font = `${fs}px 'PressStart2P'`;
-    ctx.fillStyle = '#7a4a1a';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(PLACE3_TICKETS[i], r.x + r.w / 2, r.y + r.h * 0.17);
-
-    const sa = place3ScratchArea(r);
-    const win = i === PLACE3_CORRECT;
+  // couche argentée
+  const coat = place3Coatings[i];
+  if (!coat.revealed) {
     ctx.save();
     roundRectPath(sa.x, sa.y, sa.w, sa.h, sa.w * 0.05);
     ctx.clip();
-    ctx.fillStyle = win ? '#e9f8ee' : '#fbecec';
-    ctx.fillRect(sa.x, sa.y, sa.w, sa.h);
-    ctx.fillStyle = win ? '#1f9d55' : '#c0392b';
-    ctx.font = `${Math.round(sa.h * 0.34)}px 'PressStart2P'`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(win ? 'VRAI' : 'FAUX', sa.x + sa.w / 2, sa.y + sa.h / 2);
+    ctx.drawImage(coat.canvas, 0, 0, TICKET_TEX_W, TICKET_TEX_H, sa.x, sa.y, sa.w, sa.h);
     ctx.restore();
+  }
+}
 
-    const coat = place3Coatings[i];
-    if (!coat.revealed) {
-      ctx.save();
-      roundRectPath(sa.x, sa.y, sa.w, sa.h, sa.w * 0.05);
-      ctx.clip();
-      ctx.drawImage(coat.canvas, 0, 0, TICKET_TEX_W, TICKET_TEX_H, sa.x, sa.y, sa.w, sa.h);
-      ctx.restore();
-    }
-  });
+function drawPlace3Tickets(assets) {
+  dimBackdrop();
+  const layout = place3Layout();
+
+  // La question s'écrit d'abord (machine à écrire + son clavier).
+  const done = drawTypingQuestion(assets.quizPanel, layout.panel, PLACE3_QUESTION, place3QuestionStart);
+  if (!done) return; // les tickets n'apparaissent qu'une fois la question écrite
+
+  layout.rects.forEach((r, i) => drawPlace3Ticket(assets, r, i));
 
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  ctx.font = `${Math.round(window.innerHeight * 0.028)}px 'PressStart2P'`;
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = `${Math.round(window.innerHeight * 0.026)}px 'PressStart2P'`;
   ctx.fillText('Gratte un ticket (clic maintenu)', window.innerWidth / 2, window.innerHeight * 0.97);
   ctx.restore();
 }
@@ -245,11 +306,27 @@ function place3Win() {
   ctx.restore();
 }
 
-// ---------- Grattage à la souris ----------
+// ---------- Entrées souris ----------
 function handlePlace3Down(evt) {
-  if (place3Phase !== 'scratch') return;
   const pos = getPointerPos(evt);
-  const rects = place3TicketRects();
+
+  // Cliquer le ticket au sol (une fois posé et Lauren proche) : ouvre la question.
+  if (place3Phase === 'play' && place3TicketLanded() && laurenNearTicket()) {
+    const containT = getPlace3ContainT(place3Assets);
+    const w = PLACE3_TICKET_W * containT.scale;
+    const cx = containT.dx + PLACE3_TICKET_X * containT.scale;
+    const cy = containT.dy + PLACE3_TICKET_GROUND_Y * containT.scale;
+    if (Math.abs(pos.x - cx) <= w * 0.7 && Math.abs(pos.y - cy) <= w * 0.6) {
+      place3Phase = 'scratch';
+      place3QuestionStart = performance.now();
+    }
+    return;
+  }
+
+  // Gratter (uniquement une fois la question entièrement écrite).
+  if (place3Phase !== 'scratch') return;
+  if (!questionTypingDone(place3QuestionStart, PLACE3_QUESTION)) return;
+  const rects = place3Layout().rects;
   for (let i = 0; i < 4; i++) {
     if (place3Coatings[i].revealed) continue;
     const sa = place3ScratchArea(rects[i]);
@@ -263,7 +340,7 @@ function handlePlace3Down(evt) {
 
 function handlePlace3Move(evt) {
   if (!place3Scratch || evt.pointerId !== place3Scratch.pointerId) return;
-  const rects = place3TicketRects();
+  const rects = place3Layout().rects;
   const sa = place3ScratchArea(rects[place3Scratch.ticket]);
   place3ScratchAt(place3Scratch.ticket, sa, getPointerPos(evt));
 }
@@ -316,10 +393,15 @@ function drawPlace3Scene(assets, elapsed, dt) {
 
   if (assets.place3Fond) drawBackgroundContain(assets.place3Fond, containT);
 
+  // Ticket au sol (tombe puis attend d'être cliqué), avant l'ouverture.
+  if (place3Phase === 'enter' || place3Phase === 'play') {
+    drawPlace3GroundTicket(assets, containT);
+  }
+
   updatePlace3Lauren(dt);
   drawCharacter(place3Lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE3_GROUND_Y);
 
-  if (place3Phase === 'play') drawKeyboardMoveHint();
+  if (place3Phase === 'play' && place3TicketLanded()) drawKeyboardMoveHint();
 
   if (place3Phase === 'scratch' || place3Phase === 'win' || place3Phase === 'exit') {
     drawPlace3Tickets(assets);

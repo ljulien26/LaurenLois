@@ -38,6 +38,7 @@ let place4Assets = null;
 let place4Picked = -1;
 let place4PickedStart = 0;
 let place4PickedCorrect = false;
+let place4QuestionStart = null;
 let place4ExitStart = 0;
 
 const PLACE4_FADE_IN = 500;
@@ -47,6 +48,7 @@ function place4Reset() {
   place4Phase = 'enter';
   place4Entered = false;
   place4Picked = -1;
+  place4QuestionStart = null;
   place4Lauren.x = PLACE4_LAUREN_START_X;
   place4Lauren.facing = 'right';
   place4Lauren.walking = false;
@@ -99,6 +101,7 @@ function updatePlace4Lauren(dt) {
 
   if (place4Phase === 'play' && place4Lauren.x >= PLACE4_TRIGGER_X) {
     place4Phase = 'question';
+    place4QuestionStart = performance.now();
   }
 }
 
@@ -134,18 +137,9 @@ function place4AnswerRects() {
 function drawPlace4Question(assets) {
   dimBackdrop();
   const panel = place4PanelRect();
-  ctx.drawImage(assets.quizPanel, 0, 0, assets.quizPanel.width, assets.quizPanel.height,
-    panel.x, panel.y, panel.w, panel.h);
-
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#2a1a0a';
-  const q = wrapPixelQuestion(PLACE4_QUESTION, panel.w * 0.76, panel.h * 0.16);
-  const lineH = panel.h * 0.26;
-  q.lines.forEach((ln, i) => {
-    ctx.font = `${q.fs}px 'PressStart2P'`;
-    ctx.fillText(ln, panel.x + panel.w / 2, panel.y + panel.h / 2 + (i - (q.lines.length - 1) / 2) * lineH);
-  });
+  // La question s'écrit d'abord (machine à écrire + son clavier).
+  const done = drawTypingQuestion(assets.quizPanel, panel, PLACE4_QUESTION, place4QuestionStart);
+  if (!done) return; // les réponses n'apparaissent qu'une fois la question écrite
 
   const rects = place4AnswerRects();
   rects.forEach((r, i) => {
@@ -198,6 +192,7 @@ function handlePlace4Down(evt) {
 
   if (place4Phase === 'question') {
     if (place4Picked !== -1) return;
+    if (!questionTypingDone(place4QuestionStart, PLACE4_QUESTION)) return;
     const rects = place4AnswerRects();
     for (let i = 0; i < 4; i++) {
       if (pointInRect(pos, rects[i])) {

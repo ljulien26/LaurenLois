@@ -158,6 +158,9 @@ window.addEventListener('keyup', (e) => heldKeys.delete(e.key.toLowerCase()));
 // chats, pour tester vite. ---
 window.addEventListener('keydown', (e) => {
   if (!e.shiftKey) return;
+  // Sur clavier AZERTY, les chiffres se tapent avec Maj : on ne déclenche donc
+  // PAS ces sauts quand la joueuse est en train de saisir son nombre au cinéma.
+  if (scene === 'place5' && place5Phase === 'question') return;
   if (['Digit3', 'Digit4', 'Digit5', 'Digit6'].includes(e.code)) setKeyboardTyping(false);
   if (e.code === 'Digit3') { place3Reset(); scene = 'place3'; startTime = null; }
   else if (e.code === 'Digit4') { place4Reset(); scene = 'place4'; startTime = null; }

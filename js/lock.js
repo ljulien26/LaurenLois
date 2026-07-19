@@ -177,7 +177,6 @@ function handleLockDown(evt) {
     lockDragWheel = w;
     lockDragPointerId = evt.pointerId;
     lockDragLastY = pos.y;
-    playClickSound();
   }
 }
 
@@ -533,10 +532,8 @@ function handleHintsDown(pos) {
     if (pointInRect(pos, b.consulter)) {
       hintViewIndex = hintOfferIndex;
       hintOfferIndex = -1;
-      playClickSound();
     } else if (pointInRect(pos, b.refuser)) {
       hintOfferIndex = -1;
-      playClickSound();
     }
     return true;
   }
@@ -544,16 +541,13 @@ function handleHintsDown(pos) {
     const b = hintViewerButtons();
     if (b.suivant && pointInRect(pos, b.suivant)) {
       hintViewIndex++;
-      playClickSound();
     } else if (pointInRect(pos, b.fermer)) {
       hintViewIndex = -1;
-      playClickSound();
     }
     return true;
   }
   if (hintsUnlocked > 0 && pointInRect(pos, hintAccessButton())) {
     hintViewIndex = 0; // on commence toujours par l'indice 1
-    playClickSound();
     return true;
   }
   return false;

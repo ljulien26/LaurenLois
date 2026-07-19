@@ -289,8 +289,11 @@ let menuAudioPrimed = false;
 function primeMenuAudioOnce() {
   if (scene !== 'menu' || menuAudioPrimed) return;
   menuAudioPrimed = true;
-  unlockAudio();
-  setTimeout(() => { if (scene === 'menu') { menuMusicStarted = false; startMenuMusic(); } }, 200);
+  // Le 1er clic/touche débloque le son (activation persistante du navigateur) :
+  // il suffit de (re)lancer la musique. Surtout PAS unlockAudio() ici, qui
+  // rejouerait tous les sons en muet et couperait le clic joué au même instant.
+  menuMusicStarted = false;
+  startMenuMusic();
 }
 canvas.addEventListener('pointerdown', primeMenuAudioOnce);
 window.addEventListener('keydown', primeMenuAudioOnce);

@@ -322,37 +322,19 @@ function updatePlace2Answer() {
 const PLACE2_FADE_IN = 500;
 const PLACE2_EXIT_FADE = 900;
 
-// Une fois la question résolue (phase 'explore'), un halo sombre pulsé sur le
-// bord droit + des chevrons indiquent qu'il faut partir vers la droite (sortie).
+// Halo sombre pulsé sur le bord droit : indique, dès le début, qu'il faut se
+// diriger vers la droite (la question s'y déclenche, puis la sortie s'y trouve).
 function drawPlace2ExitHint() {
   const w = window.innerWidth, h = window.innerHeight;
   const pulse = 0.5 + Math.sin(performance.now() / 500) * 0.5; // 0 → 1
 
   ctx.save();
-  // halo noir dégradé sur le bord droit
   const bandW = w * 0.22;
   const grad = ctx.createLinearGradient(w - bandW, 0, w, 0);
   grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
   grad.addColorStop(1, `rgba(0, 0, 0, ${0.3 + 0.28 * pulse})`);
   ctx.fillStyle = grad;
   ctx.fillRect(w - bandW, 0, bandW, h);
-
-  // chevrons ">" clignotants
-  ctx.globalAlpha = 0.55 + 0.45 * pulse;
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = Math.max(3, h * 0.009);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  const s = h * 0.045;
-  const cx = w * 0.94, cy = h * 0.5;
-  for (let i = 0; i < 2; i++) {
-    const ox = i * s * 1.1;
-    ctx.beginPath();
-    ctx.moveTo(cx - s + ox, cy - s);
-    ctx.lineTo(cx + ox, cy);
-    ctx.lineTo(cx - s + ox, cy + s);
-    ctx.stroke();
-  }
   ctx.restore();
 }
 
@@ -372,8 +354,9 @@ function drawPlace2Scene(assets, elapsed, dt) {
   if (place2Phase === 'enter' || place2Phase === 'explore') {
     drawKeyboardMoveHint();
   }
-  // Après la bonne réponse : halo sombre + chevrons vers la droite (sortie).
-  if (place2Phase === 'explore') {
+  // Halo sombre vers la droite : dès l'arrivée (pour indiquer où aller) et à
+  // nouveau à l'exploration (vers la sortie). Masqué pendant la question.
+  if (place2Phase === 'enter' || place2Phase === 'explore') {
     drawPlace2ExitHint();
   }
 

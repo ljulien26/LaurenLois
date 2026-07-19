@@ -91,8 +91,13 @@ function buildTvRampSequence(totalDuration) {
     n++;
   }
 
-  // Cale la dernière étape pile sur la fin de la fenêtre : aucune image ne fige.
-  steps[steps.length - 1].end = totalDuration;
+  // Garantit que la séquence se TERMINE par un flash fort qui s'éteint pile à
+  // la fin de la fenêtre — donc au même instant que la fin du son d'activation.
+  // Sinon elle pourrait finir sur une statique, et le son se couperait "à vide".
+  const finalFlash = TV_FLASH_DUR_END;
+  while (steps.length && steps[steps.length - 1].end > totalDuration - finalFlash) steps.pop();
+  steps.push({ end: totalDuration - finalFlash, frame: TV_STATIC_DENSE });
+  steps.push({ end: totalDuration, frame: TV_FLASH_STRONG });
   return steps;
 }
 

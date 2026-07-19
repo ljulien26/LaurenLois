@@ -237,6 +237,13 @@ registerAudioForUnlock(wrongSound);
 function playCorrectSound() { correctSound.currentTime = 0; correctSound.play().catch(() => {}); }
 function playWrongSound() { wrongSound.currentTime = 0; wrongSound.play().catch(() => {}); }
 
+// Notification (ex. apparition d'un indice). Le fichier peut ne pas encore
+// exister : dans ce cas la lecture échoue silencieusement, sans planter.
+const notifSound = new Audio('Assets/Sound/8.Notif.mp3');
+notifSound.volume = 0.6;
+registerAudioForUnlock(notifSound);
+function playNotifSound() { notifSound.currentTime = 0; notifSound.play().catch(() => {}); }
+
 // active=true : l'écriture est en cours, le son tourne ; active=false : on
 // l'arrête net (le clip est long, il ne doit surtout pas traîner une fois la
 // question entièrement écrite).

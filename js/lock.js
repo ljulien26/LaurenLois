@@ -265,6 +265,7 @@ function updateLock(dt) {
     if (hintsUnlocked < HINTS.length && wrongAttempts >= HINT_THRESHOLDS[hintsUnlocked]) {
       hintOfferIndex = hintsUnlocked;
       hintsUnlocked++;
+      playNotifSound();
     }
   }
 }

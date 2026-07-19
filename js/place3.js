@@ -28,8 +28,11 @@ const PLACE3_TICKET_X = 690;
 const PLACE3_TICKET_GROUND_Y = 486;
 const PLACE3_TICKET_W = 46;   // largeur d'affichage (coords design) — deux fois plus petit
 const PLACE3_TICKET_START_Y = -40;
-const PLACE3_TICKET_FALL_MS = 1100;
+const PLACE3_TICKET_START_DX = -55; // entre par la gauche : le vent le pousse vers sa position
+const PLACE3_TICKET_SWAY = 55;      // amplitude du balancement gauche-droite
+const PLACE3_TICKET_FALL_MS = 2800; // chute lente, comme portée par le vent
 const PLACE3_TICKET_REACH = 160;
+const PLACE3_ANSWER_GAP = 220;      // pause entre l'apparition de deux tickets
 
 // Résolution interne (fixe) de la couche à gratter de chaque ticket.
 const TICKET_TEX_W = 260;
@@ -100,15 +103,26 @@ function getPlace3ContainT(assets) {
   return getContainTransform(w, h, window.innerWidth, window.innerHeight);
 }
 
-// ---------- Ticket qui tombe au sol ----------
-function place3TicketY() {
-  const t = Math.min((performance.now() - place3TicketFallStart) / PLACE3_TICKET_FALL_MS, 1);
-  const ease = 1 - Math.pow(1 - t, 3); // easeOutCubic
-  return PLACE3_TICKET_START_Y + (PLACE3_TICKET_GROUND_Y - PLACE3_TICKET_START_Y) * ease;
+// ---------- Ticket qui tombe au sol (porté par le vent) ----------
+function place3TicketFallT() {
+  return Math.min((performance.now() - place3TicketFallStart) / PLACE3_TICKET_FALL_MS, 1);
 }
 
 function place3TicketLanded() {
-  return performance.now() - place3TicketFallStart >= PLACE3_TICKET_FALL_MS;
+  return place3TicketFallT() >= 1;
+}
+
+// Position + inclinaison du ticket pendant sa chute : descente lente adoucie à
+// l'arrivée, dérive de la gauche vers sa position finale, et balancement
+// gauche-droite qui s'atténue jusqu'à se poser bien à plat.
+function place3TicketPose() {
+  const t = place3TicketFallT();
+  const yEase = 1 - Math.pow(1 - t, 1.8); // ralentit en approchant du sol
+  const y = PLACE3_TICKET_START_Y + (PLACE3_TICKET_GROUND_Y - PLACE3_TICKET_START_Y) * yEase;
+  const drift = PLACE3_TICKET_START_DX * (1 - t);
+  const sway = Math.sin(t * Math.PI * 4) * PLACE3_TICKET_SWAY * (1 - t);
+  const angle = Math.sin(t * Math.PI * 4) * 0.3 * (1 - t);
+  return { x: PLACE3_TICKET_X + drift + sway, y, angle };
 }
 
 function laurenNearTicket() {
@@ -117,10 +131,11 @@ function laurenNearTicket() {
 
 function drawPlace3GroundTicket(assets, containT) {
   const img = assets.ticketImg;
+  const pose = place3TicketPose();
   const w = PLACE3_TICKET_W * containT.scale;
   const h = w * (img.height / img.width);
-  const cx = containT.dx + PLACE3_TICKET_X * containT.scale;
-  const cy = containT.dy + place3TicketY() * containT.scale;
+  const cx = containT.dx + pose.x * containT.scale;
+  const cy = containT.dy + pose.y * containT.scale;
 
   // halo pulsé une fois posé
   if (place3TicketLanded()) {
@@ -137,7 +152,11 @@ function drawPlace3GroundTicket(assets, containT) {
     ctx.restore();
   }
 
-  ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(pose.angle);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
 }
 
 // ---------- Déplacement de Lauren ----------
@@ -227,7 +246,31 @@ function place3CoatingRevealed(coat) {
   return total ? cleared / total : 0;
 }
 
-function drawPlace3Ticket(assets, r, i) {
+// État "machine à écrire" des tickets : chacun apparaît à son tour après la
+// question, et son titre s'écrit caractère par caractère (comme au café).
+function place3TicketsTyping() {
+  const qEnd = place3QuestionStart != null
+    ? place3QuestionStart + PLACE3_QUESTION.length * QUESTION_CHAR_MS + PLACE3_ANSWER_GAP
+    : Infinity;
+  const t = performance.now() - qEnd;
+  let cursor = 0;
+  return PLACE3_TICKETS.map((title) => {
+    const start = cursor;
+    const len = title.length;
+    const visible = t >= start;
+    let shown = 0;
+    if (visible) shown = Math.min(Math.floor((t - start) / QUESTION_CHAR_MS), len);
+    cursor = start + len * QUESTION_CHAR_MS + PLACE3_ANSWER_GAP;
+    return { visible, shown, full: shown >= len };
+  });
+}
+
+function place3AllTyped() {
+  return questionTypingDone(place3QuestionStart, PLACE3_QUESTION) &&
+    place3TicketsTyping().every((a) => a.full);
+}
+
+function drawPlace3Ticket(assets, r, i, typingState) {
   // carte
   ctx.save();
   roundRectPath(r.x, r.y, r.w, r.h, r.w * 0.06);
@@ -241,17 +284,20 @@ function drawPlace3Ticket(assets, r, i) {
   ctx.stroke();
   ctx.restore();
 
-  // titre — même taille que les réponses du café, réduite seulement si le petit
-  // ticket l'exige.
+  // titre qui s'écrit caractère par caractère (taille = réponses du café).
   const fitFs = fitButtonFontSize(PLACE3_TICKETS[i], r.w * 0.86, r.h * 0.13);
   const fs = Math.min(firstQuestionFontPx(), fitFs);
   ctx.font = `${fs}px 'PressStart2P'`;
   ctx.fillStyle = '#7a4a1a';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(PLACE3_TICKETS[i], r.x + r.w / 2, r.y + r.h * 0.18);
+  let title = PLACE3_TICKETS[i].slice(0, typingState.shown);
+  if (!typingState.full && Math.floor(performance.now() / 400) % 2 === 0) title += '_';
+  ctx.fillText(title, r.x + r.w / 2, r.y + r.h * 0.18);
 
-  // révélation dessous
+  // La zone à gratter n'apparaît qu'une fois le titre entièrement écrit.
+  if (!typingState.full) return;
+
   const sa = place3ScratchArea(r);
   const win = i === PLACE3_CORRECT;
   ctx.save();
@@ -266,7 +312,6 @@ function drawPlace3Ticket(assets, r, i) {
   ctx.fillText(win ? 'VRAI' : 'FAUX', sa.x + sa.w / 2, sa.y + sa.h / 2);
   ctx.restore();
 
-  // couche argentée
   const coat = place3Coatings[i];
   if (!coat.revealed) {
     ctx.save();
@@ -282,18 +327,28 @@ function drawPlace3Tickets(assets) {
   const layout = place3Layout();
 
   // La question s'écrit d'abord (machine à écrire + son clavier).
-  const done = drawTypingQuestion(assets.quizPanel, layout.panel, PLACE3_QUESTION, place3QuestionStart);
-  if (!done) return; // les tickets n'apparaissent qu'une fois la question écrite
+  const qDone = drawTypingQuestion(assets.quizPanel, layout.panel, PLACE3_QUESTION, place3QuestionStart);
+  if (!qDone) return;
 
-  layout.rects.forEach((r, i) => drawPlace3Ticket(assets, r, i));
+  // Puis chaque ticket apparaît à son tour, titre écrit caractère par caractère.
+  const typing = place3TicketsTyping();
+  layout.rects.forEach((r, i) => {
+    if (typing[i].visible) drawPlace3Ticket(assets, r, i, typing[i]);
+  });
 
-  ctx.save();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = `${Math.round(window.innerHeight * 0.026)}px 'PressStart2P'`;
-  ctx.fillText('Gratte un ticket (clic maintenu)', window.innerWidth / 2, window.innerHeight * 0.97);
-  ctx.restore();
+  // Le son clavier continue tant que les tickets s'écrivent, puis s'arrête net.
+  const allTyped = typing.every((a) => a.full);
+  setKeyboardTyping(!allTyped);
+
+  if (allTyped) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = `${Math.round(window.innerHeight * 0.026)}px 'PressStart2P'`;
+    ctx.fillText('Gratte un ticket (clic maintenu)', window.innerWidth / 2, window.innerHeight * 0.97);
+    ctx.restore();
+  }
 }
 
 function place3Win() {
@@ -326,9 +381,9 @@ function handlePlace3Down(evt) {
     return;
   }
 
-  // Gratter (uniquement une fois la question entièrement écrite).
+  // Gratter (uniquement une fois la question ET les 4 tickets écrits).
   if (place3Phase !== 'scratch') return;
-  if (!questionTypingDone(place3QuestionStart, PLACE3_QUESTION)) return;
+  if (!place3AllTyped()) return;
   const rects = place3Layout().rects;
   for (let i = 0; i < 4; i++) {
     if (place3Coatings[i].revealed) continue;

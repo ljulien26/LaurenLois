@@ -249,12 +249,33 @@ function questionTypingDone(startedAt, text) {
   return questionCharsShown(startedAt, text) >= text.length;
 }
 
-// Taille de police commune à toutes les questions, calée sur celle de la 1re
-// question (café) pour un rendu homogène : on ne l'agrandit jamais.
-function questionFontPx() {
-  const w = Math.min(window.innerWidth * 0.42, 300) * uiSizeFactor();
+// Taille de police de RÉFÉRENCE : exactement celle de la 1re question (le café).
+// Toutes les questions ET les réponses du jeu s'y calent, pour une taille
+// identique partout. Reproduit le calcul de place2TextFontPx (même pastille,
+// même réduction sur la réponse la plus longue du café).
+function firstQuestionFontPx() {
+  const w = Math.min(window.innerWidth * 0.4, 270) * uiSizeFactor();
   const pillH = w / (1349 / 255);
-  return pillH * 0.34;
+  let fs = pillH * 0.34;
+  const answers = (typeof PLACE2_ANSWERS !== 'undefined') ? PLACE2_ANSWERS : ['La Taverne du troll'];
+  const longest = answers.reduce((a, b) => (a.length >= b.length ? a : b));
+  ctx.font = `${fs}px 'PressStart2P'`;
+  const maxW = w * 0.84;
+  const tw = ctx.measureText(longest).width;
+  if (tw > maxW) fs *= maxW / tw;
+  return fs;
+}
+
+// Dessine une pastille (image) + son texte centré, à la taille de police de
+// référence (identique aux réponses du café).
+function drawAnswerPill(img, text, r) {
+  ctx.drawImage(img, 0, 0, img.width, img.height, r.x, r.y, r.w, r.h);
+  const fs = firstQuestionFontPx();
+  ctx.font = `${fs}px 'PressStart2P'`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#201306';
+  ctx.fillText(text, r.x + r.w / 2, r.y + r.h / 2 + fs * 0.05);
 }
 
 // Découpe un texte en lignes tenant dans maxWidth, à une taille de police
@@ -280,7 +301,7 @@ function wrapTextAtFont(text, maxWidth, fs) {
 function drawTypingQuestion(panelImg, panel, text, startedAt) {
   ctx.drawImage(panelImg, 0, 0, panelImg.width, panelImg.height, panel.x, panel.y, panel.w, panel.h);
 
-  let fs = questionFontPx();
+  let fs = firstQuestionFontPx();
   let lines = wrapTextAtFont(text, panel.w * 0.8, fs);
   const maxLines = Math.max(2, Math.floor((panel.h * 0.74) / (fs * 1.5)));
   while (lines.length > maxLines && fs > 6) {

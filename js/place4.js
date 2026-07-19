@@ -145,7 +145,7 @@ function drawPlace4Question(assets) {
   rects.forEach((r, i) => {
     let img = assets.menuBouton;
     if (place4Picked === i) img = place4PickedCorrect ? assets.quizGood : assets.quizBad;
-    drawPill(img, PLACE4_ANSWERS[i], r);
+    drawAnswerPill(img, PLACE4_ANSWERS[i], r);
   });
 }
 

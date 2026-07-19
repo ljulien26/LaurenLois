@@ -241,8 +241,10 @@ function drawPlace3Ticket(assets, r, i) {
   ctx.stroke();
   ctx.restore();
 
-  // titre
-  const fs = fitButtonFontSize(PLACE3_TICKETS[i], r.w * 0.86, r.h * 0.13);
+  // titre — même taille que les réponses du café, réduite seulement si le petit
+  // ticket l'exige.
+  const fitFs = fitButtonFontSize(PLACE3_TICKETS[i], r.w * 0.86, r.h * 0.13);
+  const fs = Math.min(firstQuestionFontPx(), fitFs);
   ctx.font = `${fs}px 'PressStart2P'`;
   ctx.fillStyle = '#7a4a1a';
   ctx.textAlign = 'center';

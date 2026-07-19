@@ -183,14 +183,8 @@ function place2Caret() {
 // qui fait tenir la réponse la plus longue dans sa pilule. Ainsi les réponses
 // sont toutes identiques et de la même taille que la question.
 function place2TextFontPx() {
-  const pill = place2PillSize();
-  const maxW = pill.w * 0.84;
-  let fs = pill.h * 0.34;
-  ctx.font = `${fs}px 'PressStart2P'`;
-  const longest = PLACE2_ANSWERS.reduce((a, b) => (a.length >= b.length ? a : b));
-  const tw = ctx.measureText(longest).width;
-  if (tw > maxW) fs *= maxW / tw;
-  return fs;
+  // Taille de référence du jeu (le café est la question de référence).
+  return firstQuestionFontPx();
 }
 
 function drawPlace2Question(assets) {

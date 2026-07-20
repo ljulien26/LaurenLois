@@ -91,6 +91,10 @@ Promise.all([
       loisPress: [loisPress1, loisPress2],
       tvFrames: [tvStaticLight, tvStaticDense, tvFlashWeak, tvFlashStrong, tvCalm],
     };
+    // TEST : si on démarre directement sur le mini-jeu des chatons, on
+    // l'initialise avant la 1re frame (chrono, panier, chats remis à zéro).
+    if (scene === 'catgame') catGameReset();
+
     requestAnimationFrame((ts) => loop(ts, assets));
   })
   .catch((err) => {

@@ -37,6 +37,7 @@ Promise.all([
   loadImage('Assets/Jeu/Places/3.png'), // Saint-Sernin
   loadImage('Assets/Jeu/Places/4.png'), // Cinéma Pathé (façade)
   loadImage('Assets/Jeu/Places/5.png'), // Cinéma Pathé (intérieur)
+  loadImage('Assets/Jeu/Places/6.png'), // Grande Roue au bord de l'eau (mini-jeu chatons)
   loadImage('Assets/Jeu/Cadenas/1.png'),
   loadImage('Assets/Jeu/Cadenas/2.png'),
   loadImage('Assets/Jeu/Quiz/Boutons/Question.png'),
@@ -64,7 +65,7 @@ Promise.all([
     loisWalk18, loisWalk19, loisWalk20, loisWalk21,
     loisPress1, loisPress2,
     tvStaticLight, tvStaticDense, tvFlashWeak, tvFlashStrong, tvCalm,
-    placeFond, place2Fond, place3Fond, place4Fond, place5Fond, cadenasClosed, cadenasOpen1,
+    placeFond, place2Fond, place3Fond, place4Fond, place5Fond, place6Fond, cadenasClosed, cadenasOpen1,
     quizPanel, quizGood, quizBad, ticketImg,
     basket26, basket27, basket28, basket29,
     cat1, cat2, cat3,
@@ -76,7 +77,7 @@ Promise.all([
 
     const assets = {
       menuFond, menuTitre, menuBouton, preMenuFond, placeFond, place2Fond,
-      place3Fond, place4Fond, place5Fond,
+      place3Fond, place4Fond, place5Fond, place6Fond,
       ticketImg,
       laurenBasket: [basket26, basket27, basket28, basket29],
       cats: [cat1, cat2, cat3],

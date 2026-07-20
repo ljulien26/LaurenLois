@@ -58,6 +58,49 @@ function getCatContainT() {
   return getContainTransform(960, 540, window.innerWidth, window.innerHeight);
 }
 
+// Bande d'eau (reflets) du décor 6, en coordonnées de l'image (960x540).
+const CAT_WATER_TOP = 352;
+const CAT_WATER_BOTTOM = 432;
+
+// Anime l'eau : chaque ligne de la bande de reflets est redessinée avec un léger
+// décalage horizontal qui ondule dans le temps (l'eau proche bouge davantage),
+// plus une scintillance dorée qui dérive lentement.
+function drawCatWater(img, containT) {
+  const scale = containT.scale;
+  const t = performance.now();
+  const maxAmp = 3.2; // amplitude max (px source)
+  const overW = (maxAmp + 1) * scale + 2;
+
+  for (let sy = CAT_WATER_TOP; sy < CAT_WATER_BOTTOM; sy++) {
+    const depth = (sy - CAT_WATER_TOP) / (CAT_WATER_BOTTOM - CAT_WATER_TOP);
+    const amp = (0.5 + depth * 1.5) * maxAmp;
+    const off = (Math.sin(sy * 0.22 + t * 0.0022) * amp +
+                 Math.sin(sy * 0.55 - t * 0.0031) * amp * 0.4) * scale;
+    const dx = containT.dx - overW + off;
+    const dy = containT.dy + sy * scale;
+    // dest légèrement plus large (overW de chaque côté) : jamais de trou au bord.
+    ctx.drawImage(img, 0, sy, img.width, 1, dx, dy, containT.dw + overW * 2, scale + 1);
+  }
+
+  // Scintillance : quelques halos dorés qui dérivent sur l'eau.
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const bandY = containT.dy + CAT_WATER_TOP * scale;
+  const bandH = (CAT_WATER_BOTTOM - CAT_WATER_TOP) * scale;
+  for (let i = 0; i < 3; i++) {
+    const p = ((t * 0.00012 + i / 3) % 1);
+    const cx = containT.dx - 120 + p * (containT.dw + 240);
+    const cy = bandY + bandH * (0.45 + 0.25 * i / 3);
+    const a = Math.max(0, 0.05 + 0.04 * Math.sin(t * 0.001 + i * 2));
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, containT.dw * 0.16);
+    glow.addColorStop(0, `rgba(255, 214, 150, ${a})`);
+    glow.addColorStop(1, 'rgba(255, 214, 150, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(containT.dx, bandY, containT.dw, bandH);
+  }
+  ctx.restore();
+}
+
 // Centre du panier (coords design) — dépend du sens dans lequel Lauren regarde,
 // car le sprite est retourné quand elle va à gauche.
 function catBasketCenter() {
@@ -166,6 +209,10 @@ function drawCatHud() {
   ctx.textBaseline = 'top';
   const fs = Math.round(window.innerHeight * 0.038);
   ctx.font = `${fs}px 'PressStart2P'`;
+  // Ombre portée : lisibilité par-dessus le ciel orangé.
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
+  ctx.shadowBlur = Math.max(2, fs * 0.2);
+  ctx.shadowOffsetY = 2;
   ctx.textAlign = 'left';
   ctx.fillStyle = '#ffd76a';
   ctx.fillText(`Chats : ${catCount}/${CAT_GOAL}`, window.innerWidth * 0.03, window.innerHeight * 0.04);
@@ -243,8 +290,13 @@ function drawCatGameScene(assets, elapsed, dt) {
   catAssets = assets;
   const containT = getCatContainT();
 
+  // Bordures noires (letterbox) puis le décor de la Grande Roue + l'eau animée.
   ctx.fillStyle = '#0a0a12';
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+  if (assets.place6Fond) {
+    drawBackgroundContain(assets.place6Fond, containT);
+    drawCatWater(assets.place6Fond, containT);
+  }
 
   updateCatGame(dt);
 

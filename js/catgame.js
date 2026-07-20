@@ -18,7 +18,7 @@ const CAT_BASKET_H = 200;     // hauteur d'affichage du sprite panier (coords de
 const CAT_BASKET_SPEED = 340; // vitesse de déplacement du panier (design px/s)
 const CAT_MIN_X = 90;
 const CAT_MAX_X = 870;
-const CAT_SIZE_W = 92;        // largeur d'affichage d'un chat qui tombe (coords design)
+const CAT_SIZE_W = 72;        // largeur d'affichage d'un chat qui tombe (coords design)
 
 // ---------- Phase marche + objet panier au sol ----------
 const CAT_LAUREN_START_X = 140;
@@ -35,7 +35,7 @@ const CAT_CORRECT = 0; // Lauren
 
 // audio miaou (rattrapage)
 const catMeow = new Audio('Assets/Sound/Chat/Miaou.mp3');
-catMeow.volume = 0.5;
+catMeow.volume = 0.3;
 registerAudioForUnlock(catMeow);
 let catLastMeow = 0;
 
@@ -101,41 +101,6 @@ function catStartMinigame() {
 
 function getCatContainT() {
   return getContainTransform(960, 540, window.innerWidth, window.innerHeight);
-}
-
-// ---------- Grande Roue qui tourne ----------
-const CAT_WHEEL_CX = 342;
-const CAT_WHEEL_CY = 150;
-const CAT_WHEEL_R = 140;
-const CAT_WHEEL_SPEED = 0.12; // rad/s
-
-let catWheelTex = null;
-function buildCatWheelTex(img) {
-  const size = CAT_WHEEL_R * 2;
-  const c = document.createElement('canvas');
-  c.width = size;
-  c.height = size;
-  const g = c.getContext('2d');
-  g.imageSmoothingEnabled = false;
-  g.drawImage(img, CAT_WHEEL_CX - CAT_WHEEL_R, CAT_WHEEL_CY - CAT_WHEEL_R, size, size, 0, 0, size, size);
-  return c;
-}
-
-function drawSpinningWheel(img, containT) {
-  if (!catWheelTex) catWheelTex = buildCatWheelTex(img);
-  const scale = containT.scale;
-  const cx = containT.dx + CAT_WHEEL_CX * scale;
-  const cy = containT.dy + CAT_WHEEL_CY * scale;
-  const r = CAT_WHEEL_R * scale;
-  const angle = performance.now() * 0.001 * CAT_WHEEL_SPEED;
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-  ctx.drawImage(catWheelTex, -r, -r, r * 2, r * 2);
-  ctx.restore();
 }
 
 // ---------- Phase marche : Lauren + panier-chat au sol ----------
@@ -510,12 +475,11 @@ function drawCatGameScene(assets, elapsed, dt) {
   catAssets = assets;
   const containT = getCatContainT();
 
-  // Décor de la Grande Roue (roue qui tourne) sur fond noir (letterbox).
+  // Décor de la Grande Roue sur fond noir (letterbox).
   ctx.fillStyle = '#0a0a12';
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
   if (assets.place6Fond) {
     drawBackgroundContain(assets.place6Fond, containT);
-    drawSpinningWheel(assets.place6Fond, containT);
   }
 
   updateCatAnswer();

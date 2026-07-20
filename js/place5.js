@@ -58,6 +58,70 @@ function getPlace5ContainT(assets) {
   return getContainTransform(w, h, window.innerWidth, window.innerHeight);
 }
 
+// ---------- Ambiance lumineuse (positions relevées dans 5.png) ----------
+// Étoiles du plafond (scintillent), appliques murales (flicker chaud), et
+// l'écran central (halo bleu qui respire). Tout en additif par-dessus le fond.
+const PLACE5_STARS = [
+  [138,38],[237,38],[348,38],[478,38],[607,38],[720,38],[820,38],
+  [64,75],[180,75],[286,75],[389,75],[478,75],[566,75],[668,75],[774,75],[892,75],
+  [128,112],[225,112],[326,112],[408,112],[478,112],[548,112],[627,112],[726,112],[828,112],
+  [198,147],[272,147],[352,147],[604,147],[684,147],[759,147],
+];
+const PLACE5_LAMPS = [[54,188],[144,191],[809,192],[895,183]];
+const PLACE5_SCREEN = { x: 481, y: 178 };
+
+function drawPlace5Ambience(containT) {
+  const t = performance.now();
+  const s = containT.scale;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  // Étoiles : certaines scintillent fort, d'autres à peine (phases décalées).
+  for (let i = 0; i < PLACE5_STARS.length; i++) {
+    const amp = 0.25 + 0.6 * ((i * 37) % 100) / 100;
+    const tw = Math.max(0, Math.sin(t / (520 + (i % 5) * 90) + i * 1.7));
+    const a = tw * amp * 0.7;
+    if (a < 0.02) continue;
+    const cx = containT.dx + PLACE5_STARS[i][0] * s;
+    const cy = containT.dy + PLACE5_STARS[i][1] * s;
+    const r = (2.2 + amp * 2.5) * s;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, `rgba(255,255,255,${a})`);
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+
+  // Écran central : halo bleu-blanc qui respire.
+  {
+    const cx = containT.dx + PLACE5_SCREEN.x * s;
+    const cy = containT.dy + PLACE5_SCREEN.y * s;
+    const pulse = 0.55 + 0.45 * Math.sin(t / 900);
+    const r = 46 * s;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, `rgba(150,200,255,${0.22 * pulse})`);
+    g.addColorStop(0.5, `rgba(120,170,255,${0.08 * pulse})`);
+    g.addColorStop(1, 'rgba(120,170,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+
+  // Appliques murales : petit flicker chaud.
+  for (let i = 0; i < PLACE5_LAMPS.length; i++) {
+    const flick = 0.72 + 0.28 * Math.sin(t / 140 + i * 2) + 0.1 * Math.sin(t / 47 + i);
+    const cx = containT.dx + PLACE5_LAMPS[i][0] * s;
+    const cy = containT.dy + PLACE5_LAMPS[i][1] * s;
+    const r = 22 * s;
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, `rgba(255,180,90,${0.18 * flick})`);
+    g.addColorStop(1, 'rgba(255,180,90,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+
+  ctx.restore();
+}
+
 // ---------- Déplacement de Lauren ----------
 function updatePlace5Lauren(dt) {
   if (!place5Entered) {
@@ -231,7 +295,10 @@ function drawPlace5Scene(assets, elapsed, dt) {
   place5Assets = assets;
   const containT = getPlace5ContainT(assets);
 
-  if (assets.place5Fond) drawBackgroundContain(assets.place5Fond, containT);
+  if (assets.place5Fond) {
+    drawBackgroundContain(assets.place5Fond, containT);
+    drawPlace5Ambience(containT);
+  }
 
   updatePlace5Lauren(dt);
   drawCharacter(place5Lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE5_GROUND_Y);

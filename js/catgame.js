@@ -8,10 +8,10 @@
 // cohérente sur tout écran.
 // ============================================================
 
-const CAT_DURATION = 60;      // secondes
+const CAT_DURATION = 40;      // secondes (plus dur)
 const CAT_GOAL = 30;          // chats à sauver
 const CAT_INTRO_MS = 2200;    // court écran d'intro avant le départ du chrono
-const CAT_SPAWN_MS = 620;     // intervalle moyen d'apparition d'un chat
+const CAT_SPAWN_MS = 470;     // intervalle d'apparition (plus de chats pour tenir en 40 s)
 const CAT_GROUND_Y = 505;     // pieds de Lauren (coords design)
 const CAT_BASKET_H = 200;     // hauteur d'affichage du sprite panier (coords design)
 const CAT_BASKET_SPEED = 340; // vitesse de déplacement du panier (design px/s)
@@ -58,46 +58,42 @@ function getCatContainT() {
   return getContainTransform(960, 540, window.innerWidth, window.innerHeight);
 }
 
-// Bande d'eau (reflets) du décor 6, en coordonnées de l'image (960x540).
-const CAT_WATER_TOP = 352;
-const CAT_WATER_BOTTOM = 432;
+// Grande Roue qui tourne (coords 6.png). On isole une région circulaire autour
+// du moyeu et on la fait pivoter lentement. NB : depuis une image plate, le
+// fond et les pieds de la roue à l'intérieur du cercle tournent aussi ; pour un
+// rendu parfait il faudrait la roue en calque séparé.
+const CAT_WHEEL_CX = 342;   // centre de la roue
+const CAT_WHEEL_CY = 150;
+const CAT_WHEEL_R = 140;    // rayon du cercle qui tourne
+const CAT_WHEEL_SPEED = 0.12; // rad/s (lent)
 
-// Anime l'eau : chaque ligne de la bande de reflets est redessinée avec un léger
-// décalage horizontal qui ondule dans le temps (l'eau proche bouge davantage),
-// plus une scintillance dorée qui dérive lentement.
-function drawCatWater(img, containT) {
+let catWheelTex = null;
+function buildCatWheelTex(img) {
+  const size = CAT_WHEEL_R * 2;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  // Copie la région carrée centrée sur le moyeu.
+  g.drawImage(img, CAT_WHEEL_CX - CAT_WHEEL_R, CAT_WHEEL_CY - CAT_WHEEL_R, size, size, 0, 0, size, size);
+  return c;
+}
+
+function drawSpinningWheel(img, containT) {
+  if (!catWheelTex) catWheelTex = buildCatWheelTex(img);
   const scale = containT.scale;
-  const t = performance.now();
-  const maxAmp = 3.2; // amplitude max (px source)
-  const overW = (maxAmp + 1) * scale + 2;
-
-  for (let sy = CAT_WATER_TOP; sy < CAT_WATER_BOTTOM; sy++) {
-    const depth = (sy - CAT_WATER_TOP) / (CAT_WATER_BOTTOM - CAT_WATER_TOP);
-    const amp = (0.5 + depth * 1.5) * maxAmp;
-    const off = (Math.sin(sy * 0.22 + t * 0.0022) * amp +
-                 Math.sin(sy * 0.55 - t * 0.0031) * amp * 0.4) * scale;
-    const dx = containT.dx - overW + off;
-    const dy = containT.dy + sy * scale;
-    // dest légèrement plus large (overW de chaque côté) : jamais de trou au bord.
-    ctx.drawImage(img, 0, sy, img.width, 1, dx, dy, containT.dw + overW * 2, scale + 1);
-  }
-
-  // Scintillance : quelques halos dorés qui dérivent sur l'eau.
+  const cx = containT.dx + CAT_WHEEL_CX * scale;
+  const cy = containT.dy + CAT_WHEEL_CY * scale;
+  const r = CAT_WHEEL_R * scale;
+  const angle = performance.now() * 0.001 * CAT_WHEEL_SPEED;
   ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  const bandY = containT.dy + CAT_WATER_TOP * scale;
-  const bandH = (CAT_WATER_BOTTOM - CAT_WATER_TOP) * scale;
-  for (let i = 0; i < 3; i++) {
-    const p = ((t * 0.00012 + i / 3) % 1);
-    const cx = containT.dx - 120 + p * (containT.dw + 240);
-    const cy = bandY + bandH * (0.45 + 0.25 * i / 3);
-    const a = Math.max(0, 0.05 + 0.04 * Math.sin(t * 0.001 + i * 2));
-    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, containT.dw * 0.16);
-    glow.addColorStop(0, `rgba(255, 214, 150, ${a})`);
-    glow.addColorStop(1, 'rgba(255, 214, 150, 0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(containT.dx, bandY, containT.dw, bandH);
-  }
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  ctx.drawImage(catWheelTex, -r, -r, r * 2, r * 2);
   ctx.restore();
 }
 
@@ -120,6 +116,8 @@ function catSpawn() {
     vy: 130 + Math.random() * 70,
     img: imgs[Math.floor(Math.random() * imgs.length)],
     sway: Math.random() * Math.PI * 2,
+    rot: Math.random() * Math.PI * 2,          // orientation initiale
+    rotSpeed: (Math.random() * 2 - 1) * 3.2,    // vitesse de rotation (sens aléatoire)
   });
 }
 
@@ -159,6 +157,7 @@ function updateCatGame(dt) {
   for (let i = cats.length - 1; i >= 0; i--) {
     const cat = cats[i];
     cat.y += cat.vy * dt;
+    cat.rot += cat.rotSpeed * dt; // le chat tournoie pendant sa chute
     if (cat.y >= basket.cy && cat.y <= basket.cy + 55 &&
         Math.abs(cat.x - basket.cx) <= basket.halfW) {
       cats.splice(i, 1);
@@ -197,9 +196,13 @@ function drawCats(containT) {
     const w = CAT_SIZE_W * containT.scale;
     const h = w * (cat.img.height / cat.img.width);
     const sway = Math.sin(cat.y / 40 + cat.sway) * 8;
-    const x = containT.dx + (cat.x + sway) * containT.scale - w / 2;
-    const y = containT.dy + cat.y * containT.scale - h / 2;
-    ctx.drawImage(cat.img, x, y, w, h);
+    const cx = containT.dx + (cat.x + sway) * containT.scale;
+    const cy = containT.dy + cat.y * containT.scale;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(cat.rot);
+    ctx.drawImage(cat.img, -w / 2, -h / 2, w, h);
+    ctx.restore();
   }
 }
 
@@ -295,7 +298,7 @@ function drawCatGameScene(assets, elapsed, dt) {
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
   if (assets.place6Fond) {
     drawBackgroundContain(assets.place6Fond, containT);
-    drawCatWater(assets.place6Fond, containT);
+    drawSpinningWheel(assets.place6Fond, containT);
   }
 
   updateCatGame(dt);

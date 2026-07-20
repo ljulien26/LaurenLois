@@ -38,84 +38,45 @@ const TV_CALM = 4;
 // des pics par-dessus cette lueur de fond.
 const TV_GLOW_BY_FRAME = [0.14, 0.2, 0.55, 1, 0.1];
 
-const TV_TIMID_PHASE_DURATION = 450; // ms : démarrage timide, la télé qui chauffe
+// Montée de la télé, calculée à la volée à partir du TEMPS DE SCÈNE (donc lisse
+// et déterministe : plus de calage sur la lecture du son, qui pouvait "sauter"
+// et faire clignoter la scène de façon anormale juste avant la coupure). La
+// scène tvOn et le son d'activation démarrent au même instant : ils restent
+// donc synchronisés, et le flash final s'éteint pile quand l'écran passe au
+// noir. Principe : démarrage timide -> flashs de plus en plus rapprochés et
+// forts -> flash final garanti.
+const TV_TIMID_MS = 420;       // ms : la télé "chauffe" (clignotements doux)
+const TV_PERIOD_START = 300;   // ms entre deux flashs au début
+const TV_PERIOD_END = 78;      // ms entre deux flashs à la fin (très resserré)
+const TV_FLASH_MS = 72;        // durée d'un flash
+const TV_FINAL_FLASH_MS = 120; // flash final garanti, calé sur la coupure
 
-// Tout début : la télé sort du calme, quelques changements timides, un premier
-// flash faible en guise d'amorce.
-const TV_TIMID_SEQUENCE = [
-  { end: 130, frame: TV_CALM },
-  { end: 250, frame: TV_STATIC_LIGHT },
-  { end: 330, frame: TV_CALM },
-  { end: 400, frame: TV_STATIC_DENSE },
-  { end: 450, frame: TV_FLASH_WEAK },
-];
-
-// Durée que la montée doit couvrir : tout ce qui reste jusqu'à la transition.
-const TV_MAIN_PHASE_DURATION = TV_ON_DURATION - TV_TIMID_PHASE_DURATION;
-
-// Réglages de la montée : au début les flashs sont rares et faibles, à la fin
-// ils sont plus fréquents — mais on garde un écart raisonnable pour éviter un
-// stroboscope trop agressif juste avant la coupure.
-const TV_GAP_START = 340;  // ms de statique entre deux flashs, au début
-const TV_GAP_END = 55;     // ms de statique entre deux flashs, à la fin (très resserré)
-const TV_FLASH_DUR_START = 60;
-const TV_FLASH_DUR_END = 95;
-
-// La séquence est construite plutôt qu'écrite à la main : ça exprime
-// directement la montée (les écarts se resserrent, les flashs forts prennent
-// le dessus) et reste réglable via les 4 constantes ci-dessus. Le "jitter"
-// déterministe évite un rythme mécanique tout en gardant un rendu identique
-// à chaque partie.
-function buildTvRampSequence(totalDuration) {
-  const steps = [];
-  let t = 0;
-  let n = 0;
-
-  while (t < totalDuration) {
-    const p = Math.min(t / totalDuration, 1); // 0 au début, 1 à la transition
-    const jitter = 0.8 + Math.abs(Math.sin(n * 2.399)) * 0.4;
-
-    // Statique entre deux flashs, de plus en plus courte. Le resserrement est
-    // accentué sur la fin (p^2) : les flashs se rapprochent nettement juste
-    // avant la coupure, pour un final plus flashy.
-    const gapP = p * p;
-    t += (TV_GAP_START + (TV_GAP_END - TV_GAP_START) * gapP) * jitter;
-    steps.push({ end: t, frame: n % 2 === 0 ? TV_STATIC_DENSE : TV_STATIC_LIGHT });
-
-    // Flash : la probabilité qu'il soit fort monte avec la progression, et la
-    // quasi-totalité des flashs deviennent forts sur la fin.
-    t += TV_FLASH_DUR_START + (TV_FLASH_DUR_END - TV_FLASH_DUR_START) * p;
-    const isStrong = Math.abs(Math.sin(n * 1.7)) < p * 1.2;
-    steps.push({ end: t, frame: isStrong ? TV_FLASH_STRONG : TV_FLASH_WEAK });
-
-    n++;
-  }
-
-  // Garantit que la séquence se TERMINE par un flash fort qui s'éteint pile à
-  // la fin de la fenêtre — donc au même instant que la fin du son d'activation.
-  // Sinon elle pourrait finir sur une statique, et le son se couperait "à vide".
-  const finalFlash = TV_FLASH_DUR_END;
-  while (steps.length && steps[steps.length - 1].end > totalDuration - finalFlash) steps.pop();
-  steps.push({ end: totalDuration - finalFlash, frame: TV_STATIC_DENSE });
-  steps.push({ end: totalDuration, frame: TV_FLASH_STRONG });
-  return steps;
+// Progression 0->1 de la montée (après le démarrage timide).
+function tvRampP(elapsed) {
+  return Math.min(Math.max((elapsed - TV_TIMID_MS) / (TV_ON_DURATION - TV_TIMID_MS), 0), 1);
 }
 
-const TV_MAIN_SEQUENCE = buildTvRampSequence(TV_MAIN_PHASE_DURATION);
-
 function pickTvFrame(elapsed) {
-  if (elapsed < TV_TIMID_PHASE_DURATION) {
-    for (const step of TV_TIMID_SEQUENCE) {
-      if (elapsed < step.end) return step.frame;
-    }
-    return TV_STATIC_DENSE;
+  // Flash final garanti : le dernier flash s'éteint pile à la coupure.
+  if (elapsed >= TV_ON_DURATION - TV_FINAL_FLASH_MS) return TV_FLASH_STRONG;
+
+  // Démarrage timide : la télé sort du calme avec quelques clignotements doux.
+  if (elapsed < TV_TIMID_MS) {
+    const k = Math.floor(elapsed / 120) % 3;
+    return k === 0 ? TV_CALM : (k === 1 ? TV_STATIC_LIGHT : TV_STATIC_DENSE);
   }
 
-  const t = elapsed - TV_TIMID_PHASE_DURATION;
-  for (const step of TV_MAIN_SEQUENCE) {
-    if (t < step.end) return step.frame;
+  // Montée : la période (écart entre flashs) se resserre nettement (p^2), et
+  // les flashs deviennent de plus en plus souvent "forts".
+  const p = tvRampP(elapsed);
+  const period = TV_PERIOD_START + (TV_PERIOD_END - TV_PERIOD_START) * (p * p);
+  const n = Math.floor(elapsed / period);
+  const local = elapsed - n * period;
+  if (local >= period - TV_FLASH_MS) {
+    const strong = Math.abs(Math.sin(n * 1.9)) < 0.2 + p; // presque tous forts à la fin
+    return strong ? TV_FLASH_STRONG : TV_FLASH_WEAK;
   }
-  return TV_FLASH_STRONG;
+  return n % 2 === 0 ? TV_STATIC_DENSE : TV_STATIC_LIGHT;
 }
 
 // Dessine le sprite de la télé (boîtier + écran) centré sur son ancrage dans
@@ -178,7 +139,8 @@ let lastTvGlow = 0;
 // scène "blackout" qui prend le relais pour l'extinction.
 function drawTvScreen(assets, containT, elapsed) {
   const frameIndex = pickTvFrame(elapsed);
-  const buildUp = 0.55 + 0.45 * Math.min(elapsed / TV_ON_DURATION, 1);
+  // La lueur monte fortement vers la fin (final bien plus intense).
+  const buildUp = 0.5 + 0.7 * tvRampP(elapsed);
   const glow = TV_GLOW_BY_FRAME[frameIndex] * tvGlowWobble(elapsed) * buildUp;
 
   lastTvFrameIndex = frameIndex;
@@ -195,16 +157,12 @@ function drawTvOnScene(assets, elapsed, dt) {
   drawBothPreMenuButtons(containT);
   drawBothCharacters(assets, containT);
 
-  // On anime la télé sur la position RÉELLE du son d'activation : les flashs
-  // (et surtout le dernier) sont ainsi parfaitement calés sur le son, quels que
-  // soient le léger décalage de démarrage ou les micro-variations de lecture.
-  // Repli sur le temps de scène si le son n'a pas démarré (cas très rare).
-  const sndTime = activationSound.currentTime > 0 ? activationSound.currentTime * 1000 : elapsed;
-  drawTvScreen(assets, containT, sndTime);
+  // Animation calée sur le temps de scène (lisse). Le son démarre au même
+  // instant que cette scène, donc ils restent synchronisés.
+  drawTvScreen(assets, containT, elapsed);
   fadeOutPreMenuMusic(dt);
 
-  // Fin dès que le son est terminé (repli de sécurité sur le temps de scène).
-  if (activationSound.ended || sndTime >= TV_ON_DURATION || elapsed >= TV_ON_DURATION + 900) {
+  if (elapsed >= TV_ON_DURATION) {
     scene = 'blackout';
     startTime = null;
   }

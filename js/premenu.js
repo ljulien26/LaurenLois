@@ -233,11 +233,22 @@ function handlePreMenuDown(evt) {
     startPressing(lauren);
     pressTimer = 0;
     preMenuStage = STAGE_LAUREN_PRESSING;
+    canvas.style.cursor = 'default';
   }
 }
 
 canvas.addEventListener('pointerdown', (evt) => {
   if (scene === 'premenu') handlePreMenuDown(evt);
+});
+
+// Curseur "main" quand la souris survole le bouton rose et que Lauren est assez
+// proche pour appuyer (comme un bouton cliquable).
+canvas.addEventListener('pointermove', (evt) => {
+  if (scene !== 'premenu' || preMenuStage !== STAGE_LAUREN_CONTROLLABLE || !preMenuAssets) return;
+  const pos = getPointerPos(evt);
+  const roseCircle = getPreMenuButtonCircle(preMenuButtons.rose, getPreMenuContainT(preMenuAssets));
+  const isNearRose = lauren.x <= LAUREN_TARGET_X + LAUREN_PRESS_REACH;
+  canvas.style.cursor = (isInsideCircle(pos, roseCircle) && isNearRose) ? 'pointer' : 'default';
 });
 
 // Invite discrète, affichée uniquement tant qu'on attend le premier tap

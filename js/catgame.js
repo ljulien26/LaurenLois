@@ -465,15 +465,24 @@ function handleCatDown(evt) {
 }
 canvas.addEventListener('pointerdown', (evt) => { if (scene === 'catgame') handleCatDown(evt); });
 
-// Curseur "main" au survol du panier-chat pendant la phase de marche.
+// Curseur "main" au survol du panier-chat (marche), d'une réponse (question)
+// ou du bouton Réessayer (échec).
 canvas.addEventListener('pointermove', (evt) => {
-  if (scene !== 'catgame' || catPhase !== 'walk') return;
+  if (scene !== 'catgame') return;
   const pos = getPointerPos(evt);
-  const containT = getCatContainT();
-  const cx = containT.dx + CAT_OBJ_X * containT.scale;
-  const cy = containT.dy + CAT_OBJ_Y * containT.scale;
-  const rr = CAT_OBJ_W * containT.scale;
-  canvas.style.cursor = (Math.abs(pos.x - cx) <= rr && Math.abs(pos.y - cy) <= rr) ? 'pointer' : 'default';
+  let over = false;
+  if (catPhase === 'walk' && laurenNearCatObj()) {
+    const containT = getCatContainT();
+    const cx = containT.dx + CAT_OBJ_X * containT.scale;
+    const cy = containT.dy + CAT_OBJ_Y * containT.scale;
+    const rr = CAT_OBJ_W * containT.scale;
+    over = Math.abs(pos.x - cx) <= rr && Math.abs(pos.y - cy) <= rr;
+  } else if (catPhase === 'question' && catPicked === -1 && catAllTyped()) {
+    over = catAnswerRects().some((r) => pointInRect(pos, r));
+  } else if (catPhase === 'lose') {
+    over = pointInRect(pos, catRetryRect());
+  }
+  canvas.style.cursor = over ? 'pointer' : 'default';
 });
 
 // ---------- Scène ----------

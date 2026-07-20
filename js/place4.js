@@ -218,6 +218,22 @@ function updatePlace4Answer() {
 
 canvas.addEventListener('pointerdown', (evt) => { if (scene === 'place4') handlePlace4Down(evt); });
 
+// Curseur "main" au survol d'une réponse cliquable, ou de la porte une fois
+// la question résolue.
+canvas.addEventListener('pointermove', (evt) => {
+  if (scene !== 'place4') return;
+  const pos = getPointerPos(evt);
+  let over = false;
+  if (place4Phase === 'question' && place4Picked === -1 && place4AllTyped()) {
+    over = place4AnswerRects().some((r) => pointInRect(pos, r));
+  } else if (place4Phase === 'door') {
+    const s = getPlace4DoorScreen(getPlace4ContainT(place4Assets));
+    const dx = pos.x - s.cx, dy = pos.y - s.cy;
+    over = dx * dx + dy * dy <= s.r * s.r && laurenNearDoor();
+  }
+  canvas.style.cursor = over ? 'pointer' : 'default';
+});
+
 // ---------- Scène ----------
 function drawPlace4Scene(assets, elapsed, dt) {
   place4Assets = assets;

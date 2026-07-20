@@ -415,6 +415,23 @@ canvas.addEventListener('pointermove', (evt) => { if (scene === 'place3') handle
 canvas.addEventListener('pointerup', (evt) => { if (scene === 'place3') handlePlace3Up(evt); });
 canvas.addEventListener('pointercancel', (evt) => { if (scene === 'place3') handlePlace3Up(evt); });
 
+// Curseur "main" au survol du ticket au sol ou d'un ticket à gratter.
+canvas.addEventListener('pointermove', (evt) => {
+  if (scene !== 'place3') return;
+  const pos = getPointerPos(evt);
+  let over = false;
+  if (place3Phase === 'play' && place3TicketLanded() && laurenNearTicket()) {
+    const containT = getPlace3ContainT(place3Assets);
+    const w = PLACE3_TICKET_W * containT.scale;
+    const cx = containT.dx + PLACE3_TICKET_X * containT.scale;
+    const cy = containT.dy + PLACE3_TICKET_GROUND_Y * containT.scale;
+    over = Math.abs(pos.x - cx) <= w * 1.3 && Math.abs(pos.y - cy) <= w * 1.1;
+  } else if (place3Phase === 'scratch' && place3AllTyped()) {
+    over = place3Layout().rects.some((r, i) => !place3Coatings[i].revealed && pointInRect(pos, place3ScratchArea(r)));
+  }
+  canvas.style.cursor = over ? 'pointer' : 'default';
+});
+
 // ---------- Scène ----------
 function drawPlace3Scene(assets, elapsed, dt) {
   place3Assets = assets;

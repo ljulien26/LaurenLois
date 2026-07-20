@@ -265,6 +265,13 @@ window.addEventListener('keydown', (e) => {
 
 canvas.addEventListener('pointerdown', (evt) => { if (scene === 'place5') handlePlace5Down(evt); });
 
+// Curseur "main" au survol du bouton Valider quand on peut répondre.
+canvas.addEventListener('pointermove', (evt) => {
+  if (scene !== 'place5') return;
+  const over = place5CanAnswer() && pointInRect(getPointerPos(evt), place5ValidateRect());
+  canvas.style.cursor = over ? 'pointer' : 'default';
+});
+
 // ---------- Scène ----------
 function drawPlace5Scene(assets, elapsed, dt) {
   place5Assets = assets;

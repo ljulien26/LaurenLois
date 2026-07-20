@@ -52,7 +52,7 @@ let place2Assets = null;
 
 // Si au bout d'une minute la joueuse n'a pas progressé (toujours en train de
 // marcher), on affiche un message explicite « va tout à droite » + son notif.
-const PLACE2_GO_RIGHT_DELAY = 60000;
+const PLACE2_GO_RIGHT_DELAY = 50000;
 let place2HintNotified = false;
 
 function place2Reset() {
@@ -306,6 +306,17 @@ function handlePlace2Down(evt) {
 }
 
 canvas.addEventListener('pointerdown', (evt) => { if (scene === 'place2') handlePlace2Down(evt); });
+
+// Curseur "main" au survol d'une réponse cliquable pendant la question.
+canvas.addEventListener('pointermove', (evt) => {
+  if (scene !== 'place2') return;
+  let over = false;
+  if (place2Phase === 'question' && place2Picked === -1 && place2Typing().answers.every((a) => a.full)) {
+    const pos = getPointerPos(evt);
+    over = place2AnswerRects().some((r) => pointInRect(pos, r));
+  }
+  canvas.style.cursor = over ? 'pointer' : 'default';
+});
 
 // ---------- Résolution du feedback de réponse ----------
 function updatePlace2Answer() {

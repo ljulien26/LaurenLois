@@ -31,7 +31,7 @@ const LOCK_WINDOW_BOTTOM = 458;
 
 const LOCK_OPEN_DURATION = 320;  // ms : le cadenas grandit à l'ouverture
 const LOCK_SNAP_SPEED = 14;      // vitesse de recalage d'une molette relâchée
-const LOCK_WRONG_HOLD = 2000;    // ms sur une mauvaise combinaison avant le flash rouge
+const LOCK_WRONG_HOLD = 3000;    // ms sur une mauvaise combinaison avant le flash rouge
 const LOCK_FLASH_DURATION = 500; // ms : durée du flash (vert au succès, rouge à l'échec)
 const LOCK_CLOSE_DURATION = 450; // ms : fondu de fermeture de l'overlay
 
@@ -66,6 +66,9 @@ let lockSettleTimer = 0;
 let lockLastCombo = null;
 let lockWrongFlashed = false;
 let lockRedFlashStart = null;
+// Indice en attente : on ne le propose (+ notif) qu'une fois le son "faux" fini.
+let lockPendingHint = -1;
+let lockPendingHintTime = 0;
 
 // Indices : débloqués après un nombre croissant de mauvais essais (une
 // mauvaise combinaison maintenue = 1 essai). Chaque indice est d'abord
@@ -132,6 +135,7 @@ function openLock(onUnlock) {
   hintsUnlocked = 0;
   hintOfferIndex = -1;
   hintViewIndex = -1;
+  lockPendingHint = -1;
   for (let i = 0; i < 6; i++) lockPos[i] = 0;
 }
 
@@ -237,6 +241,13 @@ function updateLock(dt) {
     }
   }
 
+  // Indice en attente : proposé (+ notif) seulement une fois le son "faux" fini.
+  if (lockPendingHint >= 0 && performance.now() >= lockPendingHintTime) {
+    hintOfferIndex = lockPendingHint;
+    lockPendingHint = -1;
+    playNotifSound();
+  }
+
   // Déverrouillage : dès que le code est composé et que rien ne glisse.
   if (!lockUnlocked && lockDragWheel === -1 && lockCodeMatches()) {
     lockUnlocked = true;
@@ -267,11 +278,13 @@ function updateLock(dt) {
     lockRedFlashStart = performance.now();
     playWrongSound();
     wrongAttempts++;
-    // Nouvel indice débloqué au seuil atteint : on le propose aussitôt.
+    // Seuil atteint : on n'affiche l'indice + la notif qu'une fois le son
+    // "faux" terminé (on programme leur apparition pour plus tard).
     if (hintsUnlocked < HINTS.length && wrongAttempts >= HINT_THRESHOLDS[hintsUnlocked]) {
-      hintOfferIndex = hintsUnlocked;
+      lockPendingHint = hintsUnlocked;
       hintsUnlocked++;
-      playNotifSound();
+      const dur = wrongSound.duration && !isNaN(wrongSound.duration) ? wrongSound.duration * 1000 : 1200;
+      lockPendingHintTime = performance.now() + dur;
     }
   }
 }

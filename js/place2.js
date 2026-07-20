@@ -265,31 +265,7 @@ function drawPlace2Question(assets) {
 // sortie.
 function updatePlace2Lauren(dt) {
   const controllable = place2Phase === 'enter' || place2Phase === 'explore';
-  const dir = controllable ? keyDirection() : 0;
-  if (dir === 0) {
-    place2Lauren.walking = false;
-    place2Lauren.frameIndex = 0;
-    updateWalkSound(dt, false);
-    return;
-  }
-
-  const nextX = place2Lauren.x + dir * CHARACTER_WALK_SPEED * dt;
-  const clampedX = Math.max(PLACE2_LAUREN_MIN_X, Math.min(PLACE2_LAUREN_MAX_X, nextX));
-  if (clampedX !== place2Lauren.x) {
-    place2Lauren.facing = dir < 0 ? 'left' : 'right';
-    place2Lauren.x = clampedX;
-    place2Lauren.walking = true;
-    place2Lauren.frameElapsed += dt * 1000;
-    while (place2Lauren.frameElapsed >= CHARACTER_WALK_FRAME_DURATION) {
-      place2Lauren.frameElapsed -= CHARACTER_WALK_FRAME_DURATION;
-      place2Lauren.frameIndex = (place2Lauren.frameIndex + 1) % place2Lauren.walkFrameCount;
-    }
-    updateWalkSound(dt, true);
-  } else {
-    place2Lauren.walking = false;
-    place2Lauren.frameIndex = 0;
-    updateWalkSound(dt, false);
-  }
+  stepPlayerWalk(place2Lauren, controllable ? keyDirection() : 0, dt, PLACE2_LAUREN_MIN_X, PLACE2_LAUREN_MAX_X);
 
   // Arrivée au milieu : la question démarre (effet machine à écrire).
   if (place2Phase === 'enter' && place2Lauren.x >= PLACE2_QUESTION_TRIGGER_X) {
@@ -398,22 +374,12 @@ function drawPlace2Scene(assets, elapsed, dt) {
   }
 
   // Fondu d'arrivée depuis le noir.
-  if (elapsed < PLACE2_FADE_IN) {
-    ctx.save();
-    ctx.globalAlpha = 1 - elapsed / PLACE2_FADE_IN;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
-  }
+  drawSceneFadeIn(elapsed, PLACE2_FADE_IN);
 
   // Fondu de sortie, puis bascule vers le décor 3 (Saint-Sernin).
   if (place2Phase === 'exit') {
     const t = Math.min((performance.now() - place2ExitStart) / PLACE2_EXIT_FADE, 1);
-    ctx.save();
-    ctx.globalAlpha = t;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
+    fillBlack(t);
     if (t >= 1) {
       place2Phase = 'done';
       place3Reset();

@@ -167,32 +167,7 @@ function updatePlace3Lauren(dt) {
     return;
   }
 
-  const dir = place3Phase === 'play' ? keyDirection() : 0;
-  if (dir === 0) {
-    place3Lauren.walking = false;
-    place3Lauren.frameIndex = 0;
-    place3Lauren.frameElapsed = 0;
-    updateWalkSound(dt, false);
-  } else {
-    const nextX = place3Lauren.x + dir * CHARACTER_WALK_SPEED * dt;
-    const clampedX = Math.max(PLACE3_LAUREN_MIN_X, Math.min(PLACE3_LAUREN_MAX_X, nextX));
-    if (clampedX === place3Lauren.x) {
-      place3Lauren.walking = false;
-      place3Lauren.frameIndex = 0;
-      place3Lauren.frameElapsed = 0;
-      updateWalkSound(dt, false);
-    } else {
-      place3Lauren.facing = dir < 0 ? 'left' : 'right';
-      place3Lauren.x = clampedX;
-      place3Lauren.walking = true;
-      place3Lauren.frameElapsed += dt * 1000;
-      while (place3Lauren.frameElapsed >= CHARACTER_WALK_FRAME_DURATION) {
-        place3Lauren.frameElapsed -= CHARACTER_WALK_FRAME_DURATION;
-        place3Lauren.frameIndex = (place3Lauren.frameIndex + 1) % place3Lauren.walkFrameCount;
-      }
-      updateWalkSound(dt, true);
-    }
-  }
+  stepPlayerWalk(place3Lauren, place3Phase === 'play' ? keyDirection() : 0, dt, PLACE3_LAUREN_MIN_X, PLACE3_LAUREN_MAX_X);
 }
 
 // ---------- Mise en page des tickets à gratter (tient dans l'écran) ----------
@@ -469,21 +444,11 @@ function drawPlace3Scene(assets, elapsed, dt) {
     }
   }
 
-  if (elapsed < PLACE3_FADE_IN) {
-    ctx.save();
-    ctx.globalAlpha = 1 - elapsed / PLACE3_FADE_IN;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
-  }
+  drawSceneFadeIn(elapsed, PLACE3_FADE_IN);
 
   if (place3Phase === 'exit') {
     const t = Math.min((performance.now() - place3ExitStart) / PLACE3_EXIT_FADE, 1);
-    ctx.save();
-    ctx.globalAlpha = t;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
+    fillBlack(t);
     if (t >= 1) {
       place3Phase = 'done';
       place4Reset();

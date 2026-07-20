@@ -81,6 +81,20 @@ function drawBackgroundContain(img, t) {
   ctx.drawImage(img, 0, 0, img.width, img.height, t.dx, t.dy, t.dw, t.dh);
 }
 
+// ---------- Fondus (voile noir plein écran) ----------
+function fillBlack(alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+  ctx.restore();
+}
+
+// Fondu d'arrivée depuis le noir en début de scène (elapsed = temps de scène).
+function drawSceneFadeIn(elapsed, duration) {
+  if (elapsed < duration) fillBlack(1 - elapsed / duration);
+}
+
 // Découpe un texte en lignes tenant dans maxWidth, en police PressStart2P, et
 // réduit la taille tant qu'il dépasse 3 lignes. Renvoie { lines, fs }.
 function wrapPixelQuestion(text, maxWidth, startSize) {
@@ -408,10 +422,7 @@ function drawTypingQuestion(panelImg, panel, text, startedAt, manageSound = true
 // Chaque scène est dessinée par une fonction définie dans son propre fichier
 // (premenu.js, menu.js, place.js, ...).
 
-// TEST (temporaire) : on démarre directement sur le mini-jeu de la Grande Roue
-// (les chatons). Tout le code d'avant reste dans le jeu ; remettre 'premenu'
-// ici pour reprendre depuis le début.
-let scene = 'catgame';
+let scene = 'premenu';
 let startTime = null; // début de la scène courante (remis à zéro à chaque changement de scène)
 let lastTimestamp = 0;
 

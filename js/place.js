@@ -199,34 +199,8 @@ function updatePlaceLauren(dt) {
     return;
   }
 
-  // Jouable : déplacement tant qu'une flèche du clavier est maintenue.
-  const dir = keyDirection();
-  if (dir === 0) {
-    placeLauren.walking = false;
-    placeLauren.frameIndex = 0;
-    placeLauren.frameElapsed = 0;
-    updateWalkSound(dt, false);
-    return;
-  }
-
-  const nextX = placeLauren.x + dir * CHARACTER_WALK_SPEED * dt;
-  const clampedX = Math.max(PLACE_LAUREN_MIN_X, Math.min(PLACE_LAUREN_MAX_X, nextX));
-  if (clampedX === placeLauren.x) {
-    placeLauren.walking = false;
-    placeLauren.frameIndex = 0;
-    placeLauren.frameElapsed = 0;
-    updateWalkSound(dt, false);
-    return;
-  }
-  placeLauren.facing = dir < 0 ? 'left' : 'right';
-  placeLauren.x = clampedX;
-  placeLauren.walking = true;
-  placeLauren.frameElapsed += dt * 1000;
-  while (placeLauren.frameElapsed >= CHARACTER_WALK_FRAME_DURATION) {
-    placeLauren.frameElapsed -= CHARACTER_WALK_FRAME_DURATION;
-    placeLauren.frameIndex = (placeLauren.frameIndex + 1) % placeLauren.walkFrameCount;
-  }
-  updateWalkSound(dt, true);
+  // Jouable : déplacement au clavier.
+  stepPlayerWalk(placeLauren, keyDirection(), dt, PLACE_LAUREN_MIN_X, PLACE_LAUREN_MAX_X);
 }
 
 // Lauren entre en marchant jusqu'à sa position d'arrêt dès l'arrivée en scène.
@@ -328,11 +302,7 @@ function drawPlaceScene(assets, elapsed, dt) {
   // pour l'instant, fondu au noir puis bascule vers le décor 2.
   if (placePhase === 'gate') {
     const t = Math.min((performance.now() - placePhaseStart) / PLACE_END_FADE, 1);
-    ctx.save();
-    ctx.globalAlpha = t;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
+    fillBlack(t);
     if (t >= 1) {
       placePhase = 'done';
       place2Reset();
@@ -342,11 +312,5 @@ function drawPlaceScene(assets, elapsed, dt) {
   }
 
   // Fondu d'arrivée depuis le noir.
-  if (elapsed < PLACE_FADE_IN_DURATION) {
-    ctx.save();
-    ctx.globalAlpha = 1 - elapsed / PLACE_FADE_IN_DURATION;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
-  }
+  drawSceneFadeIn(elapsed, PLACE_FADE_IN_DURATION);
 }

@@ -131,32 +131,7 @@ function updatePlace5Lauren(dt) {
     return;
   }
 
-  const dir = place5Phase === 'play' ? keyDirection() : 0;
-  if (dir === 0) {
-    place5Lauren.walking = false;
-    place5Lauren.frameIndex = 0;
-    place5Lauren.frameElapsed = 0;
-    updateWalkSound(dt, false);
-  } else {
-    const nextX = place5Lauren.x + dir * CHARACTER_WALK_SPEED * dt;
-    const clampedX = Math.max(PLACE5_LAUREN_MIN_X, Math.min(PLACE5_LAUREN_MAX_X, nextX));
-    if (clampedX === place5Lauren.x) {
-      place5Lauren.walking = false;
-      place5Lauren.frameIndex = 0;
-      place5Lauren.frameElapsed = 0;
-      updateWalkSound(dt, false);
-    } else {
-      place5Lauren.facing = dir < 0 ? 'left' : 'right';
-      place5Lauren.x = clampedX;
-      place5Lauren.walking = true;
-      place5Lauren.frameElapsed += dt * 1000;
-      while (place5Lauren.frameElapsed >= CHARACTER_WALK_FRAME_DURATION) {
-        place5Lauren.frameElapsed -= CHARACTER_WALK_FRAME_DURATION;
-        place5Lauren.frameIndex = (place5Lauren.frameIndex + 1) % place5Lauren.walkFrameCount;
-      }
-      updateWalkSound(dt, true);
-    }
-  }
+  stepPlayerWalk(place5Lauren, place5Phase === 'play' ? keyDirection() : 0, dt, PLACE5_LAUREN_MIN_X, PLACE5_LAUREN_MAX_X);
 
   if (place5Phase === 'play' && place5Lauren.x >= PLACE5_TRIGGER_X) {
     place5Phase = 'question';
@@ -316,21 +291,11 @@ function drawPlace5Scene(assets, elapsed, dt) {
     }
   }
 
-  if (elapsed < PLACE5_FADE_IN) {
-    ctx.save();
-    ctx.globalAlpha = 1 - elapsed / PLACE5_FADE_IN;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
-  }
+  drawSceneFadeIn(elapsed, PLACE5_FADE_IN);
 
   if (place5Phase === 'exit') {
     const t = Math.min((performance.now() - place5ExitStart) / PLACE5_EXIT_FADE, 1);
-    ctx.save();
-    ctx.globalAlpha = t;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
+    fillBlack(t);
     if (t >= 1) {
       place5Phase = 'done';
       catGameReset();

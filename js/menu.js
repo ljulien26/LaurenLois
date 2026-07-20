@@ -281,22 +281,6 @@ canvas.addEventListener('pointerdown', (evt) => {
   }
 });
 
-// TEST (temporaire) : quand on démarre directement au menu, le pré-menu — qui
-// débloque normalement le son — est sauté. On débloque donc le son au premier
-// clic sur le menu et on (re)lance la musique. À retirer avec le démarrage
-// direct au menu.
-let menuAudioPrimed = false;
-function primeMenuAudioOnce() {
-  if (scene !== 'menu' || menuAudioPrimed) return;
-  menuAudioPrimed = true;
-  // Le 1er clic/touche débloque le son (activation persistante du navigateur) :
-  // il suffit de (re)lancer la musique. Surtout PAS unlockAudio() ici, qui
-  // rejouerait tous les sons en muet et couperait le clic joué au même instant.
-  menuMusicStarted = false;
-  startMenuMusic();
-}
-canvas.addEventListener('pointerdown', primeMenuAudioOnce);
-window.addEventListener('keydown', primeMenuAudioOnce);
 
 canvas.addEventListener('pointerup', (evt) => {
   if (scene !== 'menu') return;

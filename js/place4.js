@@ -72,32 +72,7 @@ function updatePlace4Lauren(dt) {
   }
 
   const controllable = place4Phase === 'play' || place4Phase === 'door';
-  const dir = controllable ? keyDirection() : 0;
-  if (dir === 0) {
-    place4Lauren.walking = false;
-    place4Lauren.frameIndex = 0;
-    place4Lauren.frameElapsed = 0;
-    updateWalkSound(dt, false);
-  } else {
-    const nextX = place4Lauren.x + dir * CHARACTER_WALK_SPEED * dt;
-    const clampedX = Math.max(PLACE4_LAUREN_MIN_X, Math.min(PLACE4_LAUREN_MAX_X, nextX));
-    if (clampedX === place4Lauren.x) {
-      place4Lauren.walking = false;
-      place4Lauren.frameIndex = 0;
-      place4Lauren.frameElapsed = 0;
-      updateWalkSound(dt, false);
-    } else {
-      place4Lauren.facing = dir < 0 ? 'left' : 'right';
-      place4Lauren.x = clampedX;
-      place4Lauren.walking = true;
-      place4Lauren.frameElapsed += dt * 1000;
-      while (place4Lauren.frameElapsed >= CHARACTER_WALK_FRAME_DURATION) {
-        place4Lauren.frameElapsed -= CHARACTER_WALK_FRAME_DURATION;
-        place4Lauren.frameIndex = (place4Lauren.frameIndex + 1) % place4Lauren.walkFrameCount;
-      }
-      updateWalkSound(dt, true);
-    }
-  }
+  stepPlayerWalk(place4Lauren, controllable ? keyDirection() : 0, dt, PLACE4_LAUREN_MIN_X, PLACE4_LAUREN_MAX_X);
 
   if (place4Phase === 'play' && place4Lauren.x >= PLACE4_TRIGGER_X) {
     place4Phase = 'question';
@@ -260,21 +235,11 @@ function drawPlace4Scene(assets, elapsed, dt) {
 
   if (place4Phase === 'question') drawPlace4Question(assets);
 
-  if (elapsed < PLACE4_FADE_IN) {
-    ctx.save();
-    ctx.globalAlpha = 1 - elapsed / PLACE4_FADE_IN;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
-  }
+  drawSceneFadeIn(elapsed, PLACE4_FADE_IN);
 
   if (place4Phase === 'exit') {
     const t = Math.min((performance.now() - place4ExitStart) / PLACE4_EXIT_FADE, 1);
-    ctx.save();
-    ctx.globalAlpha = t;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
+    fillBlack(t);
     if (t >= 1) {
       place4Phase = 'done';
       place5Reset();

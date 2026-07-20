@@ -105,32 +105,7 @@ function getCatContainT() {
 
 // ---------- Phase marche : Lauren + panier-chat au sol ----------
 function updateCatWalk(dt) {
-  const dir = keyDirection();
-  if (dir === 0) {
-    catLauren.walking = false;
-    catLauren.frameIndex = 0;
-    catLauren.frameElapsed = 0;
-    updateWalkSound(dt, false);
-    return;
-  }
-  const nextX = catLauren.x + dir * CHARACTER_WALK_SPEED * dt;
-  const clampedX = Math.max(CAT_MIN_X, Math.min(CAT_MAX_X, nextX));
-  if (clampedX === catLauren.x) {
-    catLauren.walking = false;
-    catLauren.frameIndex = 0;
-    catLauren.frameElapsed = 0;
-    updateWalkSound(dt, false);
-    return;
-  }
-  catLauren.facing = dir < 0 ? 'left' : 'right';
-  catLauren.x = clampedX;
-  catLauren.walking = true;
-  catLauren.frameElapsed += dt * 1000;
-  while (catLauren.frameElapsed >= CHARACTER_WALK_FRAME_DURATION) {
-    catLauren.frameElapsed -= CHARACTER_WALK_FRAME_DURATION;
-    catLauren.frameIndex = (catLauren.frameIndex + 1) % catLauren.walkFrameCount;
-  }
-  updateWalkSound(dt, true);
+  stepPlayerWalk(catLauren, keyDirection(), dt, CAT_MIN_X, CAT_MAX_X);
 }
 
 function laurenNearCatObj() {
@@ -544,21 +519,11 @@ function drawCatGameScene(assets, elapsed, dt) {
   }
 
   // Fondu d'arrivée depuis le noir.
-  if (elapsed < 500) {
-    ctx.save();
-    ctx.globalAlpha = 1 - elapsed / 500;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
-  }
+  drawSceneFadeIn(elapsed, 500);
 
   if (catPhase === 'exit') {
     const t = Math.min((performance.now() - catExitStart) / CAT_EXIT_FADE, 1);
-    ctx.save();
-    ctx.globalAlpha = t;
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.restore();
+    fillBlack(t);
     if (t >= 1) {
       ctx.save();
       ctx.fillStyle = '#ffffff';

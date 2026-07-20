@@ -91,6 +91,31 @@ function updateCharacter(c, dt) {
   }
 }
 
+// Déplacement au clavier d'un personnage contrôlé par le joueur : dir vaut -1
+// (gauche), 0 (immobile) ou +1 (droite). Gère la position (bornée à [minX,
+// maxX]), l'orientation, l'animation de marche et le son de pas. Mutualise le
+// code de déplacement de toutes les scènes jouables. Renvoie true s'il a bougé.
+function stepPlayerWalk(c, dir, dt, minX, maxX) {
+  const clampedX = dir === 0 ? c.x : Math.max(minX, Math.min(maxX, c.x + dir * CHARACTER_WALK_SPEED * dt));
+  if (dir === 0 || clampedX === c.x) {
+    c.walking = false;
+    c.frameIndex = 0;
+    c.frameElapsed = 0;
+    updateWalkSound(dt, false);
+    return false;
+  }
+  c.facing = dir < 0 ? 'left' : 'right';
+  c.x = clampedX;
+  c.walking = true;
+  c.frameElapsed += dt * 1000;
+  while (c.frameElapsed >= CHARACTER_WALK_FRAME_DURATION) {
+    c.frameElapsed -= CHARACTER_WALK_FRAME_DURATION;
+    c.frameIndex = (c.frameIndex + 1) % c.walkFrameCount;
+  }
+  updateWalkSound(dt, true);
+  return true;
+}
+
 // anchorY : niveau du sol (pieds) en coordonnées du fond de la scène. Par
 // défaut celui du PreMenu ; une scène au sol différent (ex. le café) le passe.
 function drawCharacter(c, idleImg, walkFrames, containT, pressFrames, anchorY = CHARACTER_ANCHOR_Y) {

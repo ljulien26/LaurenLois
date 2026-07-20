@@ -221,15 +221,16 @@ function handlePlaceDown(evt) {
   }
 }
 
-// Curseur "main" dès qu'on survole le cadenas (peu importe la position de
-// Lauren : c'est un repère visuel indiquant qu'on peut cliquer là).
+// Curseur "main" au survol du cadenas, uniquement quand Lauren est assez proche
+// pour pouvoir cliquer (le curseur signale une action réellement possible).
 canvas.addEventListener('pointermove', (evt) => {
   if (scene !== 'place' || lockActive || placePhase !== 'play' || !placeAssets) return;
   const pos = getPointerPos(evt);
   const s = getPlaceLockScreen(getPlaceContainT(placeAssets));
   const dx = pos.x - s.cx;
   const dy = pos.y - s.cy;
-  canvas.style.cursor = (dx * dx + dy * dy <= s.r * s.r) ? 'pointer' : 'default';
+  const over = dx * dx + dy * dy <= s.r * s.r && laurenNearLock();
+  canvas.style.cursor = over ? 'pointer' : 'default';
 });
 
 // ---------- Séquence de déverrouillage : anse qui saute → fermeture de

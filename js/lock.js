@@ -31,7 +31,7 @@ const LOCK_WINDOW_BOTTOM = 458;
 
 const LOCK_OPEN_DURATION = 320;  // ms : le cadenas grandit à l'ouverture
 const LOCK_SNAP_SPEED = 14;      // vitesse de recalage d'une molette relâchée
-const LOCK_WRONG_HOLD = 3000;    // ms sur une mauvaise combinaison avant le flash rouge
+const LOCK_WRONG_HOLD = 2000;    // ms sur une mauvaise combinaison avant le flash rouge
 const LOCK_FLASH_DURATION = 500; // ms : durée du flash (vert au succès, rouge à l'échec)
 const LOCK_CLOSE_DURATION = 450; // ms : fondu de fermeture de l'overlay
 
@@ -71,7 +71,7 @@ let lockRedFlashStart = null;
 // mauvaise combinaison maintenue = 1 essai). Chaque indice est d'abord
 // proposé (Consulter / Refuser) ; s'il est refusé, il reste consultable
 // ensuite via le bouton "Indices", dans l'ordre.
-const HINTS = ['Raté, continue', 'JJMMAA', '1ère rencontre'];
+const HINTS = ['JJMMAA', '1ère rencontre', '(à venir)'];
 const HINT_THRESHOLDS = [3, 5, 7]; // nb de mauvais essais pour débloquer chaque indice
 
 let wrongAttempts = 0;

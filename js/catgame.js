@@ -1,23 +1,37 @@
 // ============================================================
-// Mini-jeu : la pluie de chats. Écran noir. Lauren tient un panier (assets
-// WalkPanier) et se déplace à gauche/droite (flèches). Des chatons tombent du
-// ciel ; il faut en rattraper 30 dans le panier en 60 secondes. Compteur et
-// chrono affichés. Objectif atteint -> victoire ; temps écoulé -> "Réessayer".
-//
-// Travaille dans l'espace de design 960x540 (comme les décors) pour une échelle
-// cohérente sur tout écran.
+// Décor 6 : la Grande Roue. Lauren arrive, un panier (avec un chaton qui sort
+// la tête) est posé au sol avec un halo. Elle marche jusqu'à lui et clique :
+// une question se lance (« Qui des 2 est le plus un mimi kely ? » — même style,
+// mêmes bruitages que les autres questions). Bonne réponse -> le mini-jeu se
+// lance : Lauren tient le panier et rattrape les chatons qui tombent (30 en
+// 40 s). Qu'elle réussisse ou non, elle finit sur « Bravo, tu as sauvé tous les
+// petits chats ». Travaille dans l'espace de design 960x540.
 // ============================================================
 
+// ---------- Mini-jeu (pluie de chats) ----------
 const CAT_DURATION = 40;      // secondes (plus dur)
 const CAT_GOAL = 30;          // chats à sauver
 const CAT_INTRO_MS = 2200;    // court écran d'intro avant le départ du chrono
-const CAT_SPAWN_MS = 470;     // intervalle d'apparition (plus de chats pour tenir en 40 s)
-const CAT_GROUND_Y = 505;     // pieds de Lauren (coords design)
+const CAT_SPAWN_MS = 470;     // intervalle d'apparition
+const CAT_GROUND_Y = 505;     // sol (coords design)
 const CAT_BASKET_H = 200;     // hauteur d'affichage du sprite panier (coords design)
 const CAT_BASKET_SPEED = 340; // vitesse de déplacement du panier (design px/s)
 const CAT_MIN_X = 90;
 const CAT_MAX_X = 870;
-const CAT_SIZE_W = 92;        // largeur d'affichage d'un chat (coords design)
+const CAT_SIZE_W = 92;        // largeur d'affichage d'un chat qui tombe (coords design)
+
+// ---------- Phase marche + objet panier au sol ----------
+const CAT_LAUREN_START_X = 140;
+const CAT_LAUREN_SCALE = 0.85;
+const CAT_OBJ_X = 640;        // panier-chat posé au sol (coords design)
+const CAT_OBJ_Y = 498;
+const CAT_OBJ_W = 72;         // largeur du panier
+const CAT_OBJ_REACH = 165;    // distance max (x) pour pouvoir cliquer
+
+// ---------- Question ----------
+const CAT_QUESTION = 'Qui des 2 est le plus un mimi kely ?';
+const CAT_ANSWERS = ['Lauren', 'Loïs'];
+const CAT_CORRECT = 0; // Lauren
 
 // audio miaou (rattrapage)
 const catMeow = new Audio('Assets/Sound/Chat/Miaou.mp3');
@@ -25,7 +39,8 @@ catMeow.volume = 0.5;
 registerAudioForUnlock(catMeow);
 let catLastMeow = 0;
 
-let catPhase = 'intro';       // 'intro' -> 'play' -> 'win' | 'lose' -> 'exit'
+// Phases : 'walk' -> 'question' -> 'intro' -> 'play' -> 'win' -> 'exit'.
+let catPhase = 'walk';
 let catIntroStart = 0;
 let catCount = 0;
 let catBasketX = 480;
@@ -39,33 +54,60 @@ let catWinStart = 0;
 let catExitStart = 0;
 let catAssets = null;
 
+let catQuestionStart = null;
+let catPicked = -1;
+let catPickedStart = 0;
+let catPickedCorrect = false;
+
 const CAT_EXIT_FADE = 1200;
+const CAT_WIN_MS = 2800;
+
+const catLauren = createCharacter(
+  CAT_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, CAT_LAUREN_SCALE, 2
+);
 
 function catGameReset() {
-  catPhase = 'intro';
-  catIntroStart = performance.now();
+  catPhase = 'walk';
+  catQuestionStart = null;
+  catPicked = -1;
+  catLauren.x = CAT_LAUREN_START_X;
+  catLauren.facing = 'right';
+  catLauren.walking = false;
+  catLauren.targetX = null;
+  // état du mini-jeu (remis à zéro pour de bon au lancement du jeu)
   catCount = 0;
+  cats = [];
+  catSpawnTimer = 0;
+  catTimeLeft = CAT_DURATION;
   catBasketX = 480;
   catFacing = 'right';
   catFrame = 0;
   catFrameElapsed = 0;
+}
+
+// Bonne réponse donnée : on démarre le mini-jeu.
+function catStartMinigame() {
+  catPhase = 'intro';
+  catIntroStart = performance.now();
+  catCount = 0;
   cats = [];
   catSpawnTimer = 0;
   catTimeLeft = CAT_DURATION;
+  catBasketX = 480;
+  catFacing = 'right';
+  catFrame = 0;
+  catFrameElapsed = 0;
 }
 
 function getCatContainT() {
   return getContainTransform(960, 540, window.innerWidth, window.innerHeight);
 }
 
-// Grande Roue qui tourne (coords 6.png). On isole une région circulaire autour
-// du moyeu et on la fait pivoter lentement. NB : depuis une image plate, le
-// fond et les pieds de la roue à l'intérieur du cercle tournent aussi ; pour un
-// rendu parfait il faudrait la roue en calque séparé.
-const CAT_WHEEL_CX = 342;   // centre de la roue
+// ---------- Grande Roue qui tourne ----------
+const CAT_WHEEL_CX = 342;
 const CAT_WHEEL_CY = 150;
-const CAT_WHEEL_R = 140;    // rayon du cercle qui tourne
-const CAT_WHEEL_SPEED = 0.12; // rad/s (lent)
+const CAT_WHEEL_R = 140;
+const CAT_WHEEL_SPEED = 0.12; // rad/s
 
 let catWheelTex = null;
 function buildCatWheelTex(img) {
@@ -75,7 +117,6 @@ function buildCatWheelTex(img) {
   c.height = size;
   const g = c.getContext('2d');
   g.imageSmoothingEnabled = false;
-  // Copie la région carrée centrée sur le moyeu.
   g.drawImage(img, CAT_WHEEL_CX - CAT_WHEEL_R, CAT_WHEEL_CY - CAT_WHEEL_R, size, size, 0, 0, size, size);
   return c;
 }
@@ -97,17 +138,162 @@ function drawSpinningWheel(img, containT) {
   ctx.restore();
 }
 
-// Centre du panier (coords design) — dépend du sens dans lequel Lauren regarde,
-// car le sprite est retourné quand elle va à gauche.
-function catBasketCenter() {
-  const drawW = CAT_BASKET_H * 0.75; // sprite 300x400 -> ratio 0.75
-  const left = catBasketX - drawW / 2;
-  // panier ~ à 30% depuis la gauche du sprite quand elle regarde à droite
-  const cx = catFacing === 'right' ? left + drawW * 0.3 : left + drawW * 0.7;
-  const cy = (CAT_GROUND_Y - CAT_BASKET_H) + CAT_BASKET_H * 0.6;
-  return { cx, cy, halfW: drawW * 0.24 };
+// ---------- Phase marche : Lauren + panier-chat au sol ----------
+function updateCatWalk(dt) {
+  const dir = keyDirection();
+  if (dir === 0) {
+    catLauren.walking = false;
+    catLauren.frameIndex = 0;
+    catLauren.frameElapsed = 0;
+    updateWalkSound(dt, false);
+    return;
+  }
+  const nextX = catLauren.x + dir * CHARACTER_WALK_SPEED * dt;
+  const clampedX = Math.max(CAT_MIN_X, Math.min(CAT_MAX_X, nextX));
+  if (clampedX === catLauren.x) {
+    catLauren.walking = false;
+    catLauren.frameIndex = 0;
+    catLauren.frameElapsed = 0;
+    updateWalkSound(dt, false);
+    return;
+  }
+  catLauren.facing = dir < 0 ? 'left' : 'right';
+  catLauren.x = clampedX;
+  catLauren.walking = true;
+  catLauren.frameElapsed += dt * 1000;
+  while (catLauren.frameElapsed >= CHARACTER_WALK_FRAME_DURATION) {
+    catLauren.frameElapsed -= CHARACTER_WALK_FRAME_DURATION;
+    catLauren.frameIndex = (catLauren.frameIndex + 1) % catLauren.walkFrameCount;
+  }
+  updateWalkSound(dt, true);
 }
 
+function laurenNearCatObj() {
+  return Math.abs(catLauren.x - CAT_OBJ_X) <= CAT_OBJ_REACH;
+}
+
+// Panier en osier (dessiné) avec un chaton qui sort la tête (bob) + halo.
+function drawCatBasketObject(containT) {
+  const scale = containT.scale;
+  const cx = containT.dx + CAT_OBJ_X * scale;
+  const gy = containT.dy + CAT_OBJ_Y * scale; // base du panier (sol)
+  const bw = CAT_OBJ_W * scale;
+  const bh = bw * 0.6;
+  const by = gy - bh; // rebord haut du panier
+  const t = performance.now();
+  const bob = Math.sin(t / 320) * bh * 0.16;
+
+  // halo pulsé (repère cliquable)
+  const pulse = 0.22 + Math.sin(t / 360) * 0.12;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, pulse);
+  ctx.globalCompositeOperation = 'lighter';
+  const hr = bw * 1.05;
+  const hy = by - bh * 0.3;
+  const glow = ctx.createRadialGradient(cx, hy, 0, cx, hy, hr);
+  glow.addColorStop(0, 'rgba(255, 226, 150, 0.85)');
+  glow.addColorStop(1, 'rgba(255, 226, 150, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(cx - hr, hy - hr, hr * 2, hr * 2);
+  ctx.restore();
+
+  // anse (derrière le chaton)
+  ctx.save();
+  ctx.strokeStyle = '#8a5c22';
+  ctx.lineWidth = Math.max(2, bw * 0.07);
+  ctx.beginPath();
+  ctx.arc(cx, by, bw * 0.42, Math.PI * 1.08, Math.PI * 1.92);
+  ctx.stroke();
+  ctx.restore();
+
+  // chaton qui sort la tête (bob) — le bas sera caché par le panier
+  const cat = catAssets.cats[0];
+  const cw = bw * 0.86;
+  const ch = cw * (cat.height / cat.width);
+  const catCenterY = by - bh * 0.05 + bob;
+  ctx.drawImage(cat, cx - cw / 2, catCenterY - ch / 2, cw, ch);
+
+  // corps du panier (osier) devant le bas du chaton
+  ctx.save();
+  const bx = cx - bw / 2;
+  ctx.fillStyle = '#a9752f';
+  roundRectPath(bx, by, bw, bh, bh * 0.16);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(90, 55, 20, 0.5)';
+  ctx.lineWidth = Math.max(1, scale);
+  for (let i = 1; i < 4; i++) {
+    const yy = by + bh * i / 4;
+    ctx.beginPath();
+    ctx.moveTo(bx, yy);
+    ctx.lineTo(bx + bw, yy);
+    ctx.stroke();
+  }
+  // rebord
+  ctx.fillStyle = '#c99450';
+  roundRectPath(bx - bw * 0.05, by - bh * 0.1, bw * 1.1, bh * 0.22, bh * 0.11);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCatWalkLauren(containT) {
+  drawCharacter(catLauren, catAssets.laurenIdle, catAssets.laurenWalk, containT, catAssets.laurenPress, CAT_GROUND_Y);
+}
+
+// ---------- Question (même style que les autres) ----------
+function catQuestionPanelRect() {
+  const w = Math.min(window.innerWidth * 0.68, 560) * uiSizeFactor();
+  const h = w / (1717 / 916);
+  return { x: window.innerWidth / 2 - w / 2, y: window.innerHeight * 0.08, w, h };
+}
+
+function catAnswerRects() {
+  const panel = catQuestionPanelRect();
+  const w = Math.min(window.innerWidth * 0.4, 270) * uiSizeFactor();
+  const h = w / (1349 / 255);
+  const gap = w * 0.14;
+  const cx = window.innerWidth / 2;
+  const y = panel.y + panel.h + h * 0.9;
+  return [
+    { x: cx - w - gap / 2, y, w, h },
+    { x: cx + gap / 2, y, w, h },
+  ];
+}
+
+function catAllTyped() {
+  return questionTypingDone(catQuestionStart, CAT_QUESTION) &&
+    answersTyping(catQuestionStart, CAT_QUESTION, CAT_ANSWERS).every((a) => a.full);
+}
+
+function drawCatQuestion(assets) {
+  dimBackdrop();
+  const panel = catQuestionPanelRect();
+  const qDone = drawTypingQuestion(assets.quizPanel, panel, CAT_QUESTION, catQuestionStart, false);
+  if (!qDone) {
+    setKeyboardTyping(catQuestionStart != null);
+    return;
+  }
+  const typing = answersTyping(catQuestionStart, CAT_QUESTION, CAT_ANSWERS);
+  const rects = catAnswerRects();
+  rects.forEach((r, i) => {
+    if (!typing[i].visible) return;
+    let img = assets.menuBouton;
+    if (catPicked === i) img = catPickedCorrect ? assets.quizGood : assets.quizBad;
+    drawTypedAnswerPill(img, CAT_ANSWERS[i], r, typing[i]);
+  });
+  setKeyboardTyping(!typing.every((a) => a.full));
+}
+
+function updateCatAnswer() {
+  if (catPicked === -1) return;
+  const held = performance.now() - catPickedStart;
+  if (catPickedCorrect) {
+    if (held >= 700) { catPicked = -1; catStartMinigame(); }
+  } else if (held >= 600) {
+    catPicked = -1;
+  }
+}
+
+// ---------- Mini-jeu : apparition / chute / rattrapage ----------
 function catSpawn() {
   const imgs = catAssets.cats;
   cats.push({
@@ -116,13 +302,21 @@ function catSpawn() {
     vy: 130 + Math.random() * 70,
     img: imgs[Math.floor(Math.random() * imgs.length)],
     sway: Math.random() * Math.PI * 2,
-    rot: Math.random() * Math.PI * 2,          // orientation initiale
-    rotSpeed: (Math.random() * 2 - 1) * 3.2,    // vitesse de rotation (sens aléatoire)
+    rot: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() * 2 - 1) * 3.2,
   });
 }
 
+function catBasketCenter() {
+  const drawW = CAT_BASKET_H * 0.75;
+  const left = catBasketX - drawW / 2;
+  const cx = catFacing === 'right' ? left + drawW * 0.3 : left + drawW * 0.7;
+  const cy = (CAT_GROUND_Y - CAT_BASKET_H) + CAT_BASKET_H * 0.6;
+  return { cx, cy, halfW: drawW * 0.24 };
+}
+
 function updateCatGame(dt) {
-  // Déplacement du panier (toujours actif, même pendant l'intro).
+  // Déplacement du panier (intro pour se positionner, puis pendant le jeu).
   const dir = keyDirection();
   if (dir !== 0) {
     catBasketX = Math.max(CAT_MIN_X, Math.min(CAT_MAX_X, catBasketX + dir * CAT_BASKET_SPEED * dt));
@@ -145,14 +339,12 @@ function updateCatGame(dt) {
 
   catTimeLeft -= dt;
 
-  // Apparition des chats.
   catSpawnTimer += dt * 1000;
   if (catSpawnTimer >= CAT_SPAWN_MS) {
     catSpawnTimer -= CAT_SPAWN_MS;
     catSpawn();
   }
 
-  // Chute + rattrapage.
   const basket = catBasketCenter();
   for (let i = cats.length - 1; i >= 0; i--) {
     const cat = cats[i];
@@ -170,13 +362,15 @@ function updateCatGame(dt) {
     if (cat.y > 560) cats.splice(i, 1); // raté
   }
 
+  // Temps écoulé : elle finit quand même sur une victoire (cadeau, pas d'échec).
   if (catTimeLeft <= 0 && catPhase === 'play') {
     catTimeLeft = 0;
-    catPhase = 'lose';
+    catPhase = 'win';
+    catWinStart = performance.now();
   }
 }
 
-// ---------- Rendu ----------
+// ---------- Rendu du mini-jeu ----------
 function drawCatSprite(containT) {
   const moving = keyDirection() !== 0;
   const img = moving ? catAssets.laurenBasket[catFrame] : catAssets.laurenBasket[0];
@@ -212,7 +406,6 @@ function drawCatHud() {
   ctx.textBaseline = 'top';
   const fs = Math.round(window.innerHeight * 0.038);
   ctx.font = `${fs}px 'PressStart2P'`;
-  // Ombre portée : lisibilité par-dessus le ciel orangé.
   ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
   ctx.shadowBlur = Math.max(2, fs * 0.2);
   ctx.shadowOffsetY = 2;
@@ -243,57 +436,81 @@ function drawCatIntro() {
   ctx.restore();
 }
 
-function catRetryRect() {
-  const w = Math.min(window.innerWidth * 0.4, 280) * uiSizeFactor();
-  const h = w / (1349 / 255);
-  return { x: window.innerWidth / 2 - w / 2, y: window.innerHeight * 0.62, w, h };
-}
-
-function drawCatResult(assets) {
-  ctx.save();
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = `${Math.round(window.innerHeight * 0.045)}px 'PressStart2P'`;
-  ctx.fillText('Temps écoulé', window.innerWidth / 2, window.innerHeight * 0.36);
-  ctx.font = `${Math.round(window.innerHeight * 0.032)}px 'PressStart2P'`;
-  ctx.fillStyle = '#ffd76a';
-  ctx.fillText(`${catCount} chats sauvés`, window.innerWidth / 2, window.innerHeight * 0.48);
-  ctx.restore();
-  drawPill(assets.menuBouton, 'Réessayer', catRetryRect());
-}
-
 function drawCatWin() {
+  const w = window.innerWidth, h = window.innerHeight;
   ctx.save();
   ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-  ctx.fillStyle = '#ff9ec2';
+  ctx.fillRect(0, 0, w, h);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.font = `${Math.round(window.innerHeight * 0.09)}px 'Courier New', monospace`;
-  ctx.fillText('❤', window.innerWidth / 2, window.innerHeight * 0.4);
+  ctx.fillStyle = '#ff9ec2';
+  ctx.font = `${Math.round(h * 0.085)}px 'Courier New', monospace`;
+  ctx.fillText('❤', w / 2, h * 0.33);
+  ctx.fillStyle = '#ffd76a';
+  ctx.font = `${Math.round(h * 0.055)}px 'PressStart2P'`;
+  ctx.fillText('Bravo !', w / 2, h * 0.47);
+  // phrase plus longue : police réduite pour tenir à l'écran
   ctx.fillStyle = '#ffffff';
-  ctx.font = `${Math.round(window.innerHeight * 0.04)}px 'PressStart2P'`;
-  ctx.fillText('Tous sauvés !', window.innerWidth / 2, window.innerHeight * 0.54);
+  let fs = Math.round(h * 0.03);
+  ctx.font = `${fs}px 'PressStart2P'`;
+  const msg = 'Tu as sauvé tous les petits chats';
+  const maxW = w * 0.9;
+  const tw = ctx.measureText(msg).width;
+  if (tw > maxW) { fs *= maxW / tw; ctx.font = `${fs}px 'PressStart2P'`; }
+  ctx.fillText(msg, w / 2, h * 0.6);
   ctx.restore();
 }
 
 // ---------- Entrées ----------
 function handleCatDown(evt) {
-  if (catPhase === 'lose' && pointInRect(getPointerPos(evt), catRetryRect())) {
-    catGameReset();
+  const pos = getPointerPos(evt);
+
+  if (catPhase === 'walk') {
+    if (!laurenNearCatObj()) return;
+    const containT = getCatContainT();
+    const cx = containT.dx + CAT_OBJ_X * containT.scale;
+    const cy = containT.dy + CAT_OBJ_Y * containT.scale;
+    const rr = CAT_OBJ_W * containT.scale;
+    if (Math.abs(pos.x - cx) <= rr && Math.abs(pos.y - cy) <= rr) {
+      catPhase = 'question';
+      catQuestionStart = performance.now();
+    }
+    return;
+  }
+
+  if (catPhase === 'question') {
+    if (catPicked !== -1 || !catAllTyped()) return;
+    const rects = catAnswerRects();
+    for (let i = 0; i < rects.length; i++) {
+      if (pointInRect(pos, rects[i])) {
+        catPicked = i;
+        catPickedStart = performance.now();
+        catPickedCorrect = i === CAT_CORRECT;
+        if (catPickedCorrect) playCorrectSound(); else playWrongSound();
+        return;
+      }
+    }
   }
 }
 canvas.addEventListener('pointerdown', (evt) => { if (scene === 'catgame') handleCatDown(evt); });
+
+// Curseur "main" au survol du panier-chat pendant la phase de marche.
+canvas.addEventListener('pointermove', (evt) => {
+  if (scene !== 'catgame' || catPhase !== 'walk') return;
+  const pos = getPointerPos(evt);
+  const containT = getCatContainT();
+  const cx = containT.dx + CAT_OBJ_X * containT.scale;
+  const cy = containT.dy + CAT_OBJ_Y * containT.scale;
+  const rr = CAT_OBJ_W * containT.scale;
+  canvas.style.cursor = (Math.abs(pos.x - cx) <= rr && Math.abs(pos.y - cy) <= rr) ? 'pointer' : 'default';
+});
 
 // ---------- Scène ----------
 function drawCatGameScene(assets, elapsed, dt) {
   catAssets = assets;
   const containT = getCatContainT();
 
-  // Bordures noires (letterbox) puis le décor de la Grande Roue + l'eau animée.
+  // Décor de la Grande Roue (roue qui tourne) sur fond noir (letterbox).
   ctx.fillStyle = '#0a0a12';
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
   if (assets.place6Fond) {
@@ -301,22 +518,36 @@ function drawCatGameScene(assets, elapsed, dt) {
     drawSpinningWheel(assets.place6Fond, containT);
   }
 
-  updateCatGame(dt);
+  updateCatAnswer();
 
-  drawCats(containT);
-  drawCatSprite(containT);
-  drawCatHud();
+  if (catPhase === 'walk') {
+    updateCatWalk(dt);
+  } else if (catPhase !== 'question') {
+    updateCatGame(dt);
+  }
 
-  if (catPhase === 'intro') drawCatIntro();
-  else if (catPhase === 'lose') drawCatResult(assets);
+  const preGame = catPhase === 'walk' || catPhase === 'question';
+  if (preGame) {
+    drawCatBasketObject(containT);
+    drawCatWalkLauren(containT);
+    if (catPhase === 'walk') drawKeyboardMoveHint();
+  } else {
+    drawCats(containT);
+    drawCatSprite(containT);
+    drawCatHud();
+  }
+
+  if (catPhase === 'question') drawCatQuestion(assets);
+  else if (catPhase === 'intro') drawCatIntro();
   else if (catPhase === 'win' || catPhase === 'exit') {
     drawCatWin();
-    if (catPhase === 'win' && performance.now() - catWinStart >= 2000) {
+    if (catPhase === 'win' && performance.now() - catWinStart >= CAT_WIN_MS) {
       catPhase = 'exit';
       catExitStart = performance.now();
     }
   }
 
+  // Fondu d'arrivée depuis le noir.
   if (elapsed < 500) {
     ctx.save();
     ctx.globalAlpha = 1 - elapsed / 500;

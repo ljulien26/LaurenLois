@@ -297,7 +297,8 @@ function updateCatGame(dt) {
   }
 
   if (catPhase === 'intro') {
-    if (performance.now() - catIntroStart >= CAT_INTRO_MS) catPhase = 'play';
+    // Le jeu (chrono + chute des chats) ne démarre qu'au 1er appui sur ← ou →.
+    if (keyDirection() !== 0) catPhase = 'play';
     return;
   }
   if (catPhase !== 'play') return;
@@ -327,11 +328,10 @@ function updateCatGame(dt) {
     if (cat.y > 560) cats.splice(i, 1); // raté
   }
 
-  // Temps écoulé : elle finit quand même sur une victoire (cadeau, pas d'échec).
+  // Temps écoulé sans les 30 chats : échec, il faut recommencer.
   if (catTimeLeft <= 0 && catPhase === 'play') {
     catTimeLeft = 0;
-    catPhase = 'win';
-    catWinStart = performance.now();
+    catPhase = 'lose';
   }
 }
 
@@ -395,10 +395,33 @@ function drawCatIntro() {
   ctx.font = `${Math.round(window.innerHeight * 0.03)}px 'PressStart2P'`;
   ctx.fillStyle = '#ffd76a';
   ctx.fillText(`${CAT_GOAL} chats en ${CAT_DURATION}s`, window.innerWidth / 2, window.innerHeight * 0.52);
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
   ctx.font = `${Math.round(window.innerHeight * 0.024)}px 'PressStart2P'`;
-  ctx.fillText('← →  déplace le panier', window.innerWidth / 2, window.innerHeight * 0.62);
+  ctx.fillText('Appuie sur ← ou → pour commencer', window.innerWidth / 2, window.innerHeight * 0.62);
   ctx.restore();
+}
+
+function catRetryRect() {
+  const w = Math.min(window.innerWidth * 0.4, 280) * uiSizeFactor();
+  const h = w / (1349 / 255);
+  return { x: window.innerWidth / 2 - w / 2, y: window.innerHeight * 0.64, w, h };
+}
+
+function drawCatLose(assets) {
+  const w = window.innerWidth, h = window.innerHeight;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.62)';
+  ctx.fillRect(0, 0, w, h);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ff8a80';
+  ctx.font = `${Math.round(h * 0.055)}px 'PressStart2P'`;
+  ctx.fillText('Dommage...', w / 2, h * 0.36);
+  ctx.fillStyle = '#ffd76a';
+  ctx.font = `${Math.round(h * 0.03)}px 'PressStart2P'`;
+  ctx.fillText(`${catCount}/${CAT_GOAL} chats sauvés`, w / 2, h * 0.48);
+  ctx.restore();
+  drawPill(assets.menuBouton, 'Réessayer', catRetryRect());
 }
 
 function drawCatWin() {
@@ -437,6 +460,7 @@ function handleCatDown(evt) {
     const cy = containT.dy + CAT_OBJ_Y * containT.scale;
     const rr = CAT_OBJ_W * containT.scale;
     if (Math.abs(pos.x - cx) <= rr && Math.abs(pos.y - cy) <= rr) {
+      playClickSound();
       catPhase = 'question';
       catQuestionStart = performance.now();
     }
@@ -448,6 +472,7 @@ function handleCatDown(evt) {
     const rects = catAnswerRects();
     for (let i = 0; i < rects.length; i++) {
       if (pointInRect(pos, rects[i])) {
+        playClickSound();
         catPicked = i;
         catPickedStart = performance.now();
         catPickedCorrect = i === CAT_CORRECT;
@@ -455,6 +480,12 @@ function handleCatDown(evt) {
         return;
       }
     }
+    return;
+  }
+
+  if (catPhase === 'lose' && pointInRect(pos, catRetryRect())) {
+    playClickSound();
+    catStartMinigame();
   }
 }
 canvas.addEventListener('pointerdown', (evt) => { if (scene === 'catgame') handleCatDown(evt); });
@@ -503,6 +534,7 @@ function drawCatGameScene(assets, elapsed, dt) {
 
   if (catPhase === 'question') drawCatQuestion(assets);
   else if (catPhase === 'intro') drawCatIntro();
+  else if (catPhase === 'lose') drawCatLose(assets);
   else if (catPhase === 'win' || catPhase === 'exit') {
     drawCatWin();
     if (catPhase === 'win' && performance.now() - catWinStart >= CAT_WIN_MS) {

@@ -319,6 +319,7 @@ function handlePlace2Down(evt) {
   const rects = place2AnswerRects();
   for (let i = 0; i < 4; i++) {
     if (pointInRect(pos, rects[i])) {
+      playClickSound();
       place2Picked = i;
       place2PickedStart = performance.now();
       place2PickedCorrect = i === PLACE2_CORRECT;

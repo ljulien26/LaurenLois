@@ -208,7 +208,7 @@ function place5CanAnswer() {
 
 function handlePlace5Down(evt) {
   if (!place5CanAnswer()) return;
-  if (pointInRect(getPointerPos(evt), place5ValidateRect())) place5Validate();
+  if (pointInRect(getPointerPos(evt), place5ValidateRect())) { playClickSound(); place5Validate(); }
 }
 
 // Saisie au clavier (chiffres, effacement, Entrée) une fois la question écrite.

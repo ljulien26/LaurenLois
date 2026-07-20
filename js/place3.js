@@ -379,6 +379,7 @@ function handlePlace3Down(evt) {
     if (place3Coatings[i].revealed) continue;
     const sa = place3ScratchArea(rects[i]);
     if (pointInRect(pos, sa)) {
+      playClickSound();
       place3Scratch = { pointerId: evt.pointerId, ticket: i, lastTx: null, lastTy: null };
       place3ScratchAt(i, sa, pos);
       return;

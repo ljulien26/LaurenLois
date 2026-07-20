@@ -208,6 +208,7 @@ function handlePlace4Down(evt) {
     const rects = place4AnswerRects();
     for (let i = 0; i < 4; i++) {
       if (pointInRect(pos, rects[i])) {
+        playClickSound();
         place4Picked = i;
         place4PickedStart = performance.now();
         place4PickedCorrect = i === PLACE4_CORRECT;

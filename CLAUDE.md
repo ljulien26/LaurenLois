@@ -72,4 +72,5 @@ Pour valider une **mise en page/position** statique, composer une image de contr
   - **Maj+3/4/5/6/7** sautent à place3/place4/place5/catgame/place7 (désactivé pendant la saisie du nombre en place5, car sur AZERTY les chiffres se tapent avec Maj).
   - **main.js force le démarrage sur `place7`** (bloc DEBUG) — à retirer pour repartir de `premenu`.
 - Le jeu est **desktop-only** ; `manifest.json`/`sw.js` inoffensifs.
-- **TODO** : enchaîner `catgame → place7 → fireworks` dans le flux normal (aujourd'hui seules les transitions place7→fireworks existent) ; **personnages de dos** au premier plan de l'écran final (persos vus de dos, câlin, regardent le feu — assets à générer) ; retirer les blocs DEBUG ; consigne place7 (« Clique 2 pièces… » à reformuler en « Glisse les pièces »).
+- Flux complet OK : `place → place2 → place3 → place4 → place5 → catgame → place7 → fireworks` (transition catgame→place7 ajoutée ; l'ancien écran « À suivre… » est retiré).
+- **TODO** : **personnages de dos** au premier plan de l'écran final (persos vus de dos, câlin, regardent le feu — assets à générer) ; retirer les raccourcis DEBUG Maj+3…7 pour la version cadeau finale.

@@ -555,13 +555,12 @@ function drawCatGameScene(assets, elapsed, dt) {
     const t = Math.min((performance.now() - catExitStart) / CAT_EXIT_FADE, 1);
     fillBlack(t);
     if (t >= 1) {
-      ctx.save();
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `${Math.round(window.innerHeight * 0.05)}px 'PressStart2P'`;
-      ctx.fillText('À suivre...', window.innerWidth / 2, window.innerHeight / 2);
-      ctx.restore();
+      // Enchaînement normal : le décor 7 (puzzle) suit le jeu des chats,
+      // qui enchaînera lui-même sur l'écran final (fireworks).
+      catPhase = 'done';
+      place7Reset();
+      scene = 'place7';
+      startTime = null;
     }
   }
 }

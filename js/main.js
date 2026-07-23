@@ -52,6 +52,12 @@ Promise.all([
   loadImage('Assets/Jeu/Chat/Chat 1.png'),
   loadImage('Assets/Jeu/Chat/Chat 2.png'),
   loadImage('Assets/Jeu/Chat/Chat 3.png'),
+  loadImage('Assets/Jeu/Panier/Panier.png'), // panier au sol (objet cliquable)
+  loadImage('Assets/Jeu/Places/8/1.png'), // décor final : jour
+  loadImage('Assets/Jeu/Places/8/2.png'), // décor final : coucher de soleil
+  loadImage('Assets/Jeu/Places/8/3.png'), // décor final : nuit
+  loadImage('Assets/Jeu/Places/7.png'),   // décor 7 : Cartoucherie
+  loadImage('Assets/Jeu/Puzzle/1.png'),   // photo du puzzle
 ])
   .then(([
     menuFond, menuTitre, nuagesImg, menuBouton,
@@ -68,7 +74,9 @@ Promise.all([
     placeFond, place2Fond, place3Fond, place4Fond, place5Fond, place6Fond, cadenasClosed, cadenasOpen1,
     quizPanel, quizGood, quizBad, ticketImg,
     basket26, basket27, basket28, basket29,
-    cat1, cat2, cat3,
+    cat1, cat2, cat3, panierImg,
+    place8Day, place8Sunset, place8Night,
+    place7Fond, puzzleImg,
   ]) => {
     createClouds(nuagesImg);
 
@@ -81,6 +89,9 @@ Promise.all([
       ticketImg,
       laurenBasket: [basket26, basket27, basket28, basket29],
       cats: [cat1, cat2, cat3],
+      panier: panierImg,
+      place8: [place8Day, place8Sunset, place8Night], // jour -> coucher -> nuit
+      place7Fond, puzzle: puzzleImg,
       cadenasFrames: [cadenasClosed, cadenasOpen1],
       quizPanel, quizGood, quizBad,
       laurenIdle,
@@ -91,7 +102,15 @@ Promise.all([
       loisPress: [loisPress1, loisPress2],
       tvFrames: [tvStaticLight, tvStaticDense, tvFlashWeak, tvFlashStrong, tvCalm],
     };
-    requestAnimationFrame((ts) => loop(ts, assets));
+    // Photos souvenir de l'écran final (chargées à part car nombreuses).
+    const photoPaths = [];
+    for (let i = 1; i <= 12; i++) photoPaths.push(loadImage(`Assets/Photo Fin de Jeu/${i}.png`));
+    Promise.all(photoPaths).then((finalPhotos) => {
+      assets.finalPhotos = finalPhotos;
+
+      // Départ normal du jeu (voir `let scene = 'premenu'` dans core.js).
+      requestAnimationFrame((ts) => loop(ts, assets));
+    });
   })
   .catch((err) => {
     console.error(err);

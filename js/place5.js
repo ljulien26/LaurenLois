@@ -36,7 +36,7 @@ let place5WinStart = 0;
 let place5ExitStart = 0;
 
 const PLACE5_FADE_IN = 500;
-const PLACE5_WIN_MS = 2400;
+const PLACE5_WIN_MS = 3900; // 1,5 s de plus pour laisser lire le bon résultat
 const PLACE5_EXIT_FADE = 900;
 
 function place5Reset() {
@@ -232,7 +232,7 @@ function place5Win() {
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffd76a';
   ctx.font = `${Math.round(window.innerHeight * 0.07)}px 'PressStart2P'`;
-  ctx.fillText('GAGNÉ !', window.innerWidth / 2, window.innerHeight * 0.44);
+  ctx.fillText('Bravo !', window.innerWidth / 2, window.innerHeight * 0.44);
   // La bonne réponse est validée à 5 près : on révèle le chiffre exact.
   ctx.fillStyle = '#ffffff';
   ctx.font = `${Math.round(window.innerHeight * 0.032)}px 'PressStart2P'`;

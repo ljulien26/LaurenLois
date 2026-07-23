@@ -11,6 +11,25 @@
 
 const LOCK_CODE = [3, 0, 0, 3, 2, 4];
 
+// Son de molette : petit "tick" joué au passage d'un chiffre à l'autre. On
+// prépare un pool de clips identiques que l'on fait tourner, pour que des ticks
+// rapprochés (défilement rapide) se chevauchent sans se couper les uns les
+// autres → défilement fluide.
+const LOCK_WHEEL_SOUND_POOL = [];
+for (let i = 0; i < 6; i++) {
+  const a = new Audio('Assets/Sound/10.CadenasMolette.wav');
+  a.volume = 0.45;
+  registerAudioForUnlock(a);
+  LOCK_WHEEL_SOUND_POOL.push(a);
+}
+let lockWheelSoundIdx = 0;
+function playMoletteSound() {
+  const a = LOCK_WHEEL_SOUND_POOL[lockWheelSoundIdx];
+  lockWheelSoundIdx = (lockWheelSoundIdx + 1) % LOCK_WHEEL_SOUND_POOL.length;
+  a.currentTime = 0;
+  a.play().catch(() => {});
+}
+
 // Géométrie dans l'espace natif du sprite (960x540), repérée sur 17.png.
 const LOCK_SPRITE_W = 960;
 const LOCK_SPRITE_H = 540;
@@ -31,7 +50,6 @@ const LOCK_WINDOW_BOTTOM = 458;
 
 const LOCK_OPEN_DURATION = 320;  // ms : le cadenas grandit à l'ouverture
 const LOCK_SNAP_SPEED = 14;      // vitesse de recalage d'une molette relâchée
-const LOCK_WRONG_HOLD = 3000;    // ms sur une mauvaise combinaison avant le flash rouge
 const LOCK_FLASH_DURATION = 500; // ms : durée du flash (vert au succès, rouge à l'échec)
 const LOCK_CLOSE_DURATION = 450; // ms : fondu de fermeture de l'overlay
 
@@ -54,6 +72,12 @@ let lockOnUnlock = null;
 // Position continue de chaque molette, en unités "chiffre" (peut être
 // fractionnaire pendant un glissement, se recale sur un entier au relâcher).
 const lockPos = [0, 0, 0, 0, 0, 0];
+// Indice "cranté" de chaque molette (entier, non modulo) : le chiffre sur lequel
+// la molette est considérée posée. Il ne change qu'en franchissant NETTEMENT le
+// demi-pas (hystérésis), pour jouer UN seul tick par chiffre et éviter les ticks
+// multiples dus au tremblement du pointeur près de la bascule.
+const lockShownIndex = [0, 0, 0, 0, 0, 0];
+const LOCK_TICK_HYSTERESIS = 0.18; // marge au-delà du demi-pas avant de basculer
 let lockDragWheel = -1;      // molette en cours de glissement, -1 si aucune
 let lockDragPointerId = null;
 let lockDragLastY = 0;
@@ -61,20 +85,17 @@ let lockUnlocked = false;
 let lockUnlockStart = 0;
 let lockClosing = false;
 let lockCloseStart = 0;
-// Détection d'une mauvaise combinaison maintenue trop longtemps.
-let lockSettleTimer = 0;
-let lockLastCombo = null;
-let lockWrongFlashed = false;
+// Flash rouge affiché quand une tentative validée est fausse.
 let lockRedFlashStart = null;
 // Indice en attente : on ne le propose (+ notif) qu'une fois le son "faux" fini.
 let lockPendingHint = -1;
 let lockPendingHintTime = 0;
 
 // Indices : débloqués après un nombre croissant de mauvais essais (une
-// mauvaise combinaison maintenue = 1 essai). Chaque indice est d'abord
+// validation ratée = 1 essai). Chaque indice est d'abord
 // proposé (Consulter / Refuser) ; s'il est refusé, il reste consultable
 // ensuite via le bouton "Indices", dans l'ordre.
-const HINTS = ['JJMMAA', '1ère rencontre', '(à venir)'];
+const HINTS = ['JJMMAA', '1ère rencontre', '30/XX/XX'];
 const HINT_THRESHOLDS = [3, 5, 7]; // nb de mauvais essais pour débloquer chaque indice
 
 let wrongAttempts = 0;
@@ -93,8 +114,9 @@ function getLockTransform() {
   const base = getContainTransform(LOCK_SPRITE_W, LOCK_SPRITE_H, window.innerWidth, window.innerHeight);
   const openT = Math.min((performance.now() - lockOpenStart) / LOCK_OPEN_DURATION, 1);
   const eased = 1 - Math.pow(1 - openT, 3); // easeOutCubic
-  // Le cadenas occupe ~86 % de la zone "contain", et grandit depuis 60 %.
-  const scale = base.scale * 0.86 * (0.6 + 0.4 * eased);
+  // Le cadenas occupe ~68 % de la zone "contain", et grandit depuis 60 %.
+  // (réduit pour laisser la place au titre en haut et au bouton Valider en bas)
+  const scale = base.scale * 0.68 * (0.6 + 0.4 * eased);
   const dw = LOCK_SPRITE_W * scale;
   const dh = LOCK_SPRITE_H * scale;
 
@@ -127,16 +149,13 @@ function openLock(onUnlock) {
   lockClosing = false;
   lockDragWheel = -1;
   lockDragPointerId = null;
-  lockSettleTimer = 0;
-  lockLastCombo = null;
-  lockWrongFlashed = false;
   lockRedFlashStart = null;
   wrongAttempts = 0;
   hintsUnlocked = 0;
   hintOfferIndex = -1;
   hintViewIndex = -1;
   lockPendingHint = -1;
-  for (let i = 0; i < 6; i++) lockPos[i] = 0;
+  for (let i = 0; i < 6; i++) { lockPos[i] = 0; lockShownIndex[i] = 0; }
 }
 
 // Rectangle écran d'une molette (zone cliquable = toute la hauteur du cadre).
@@ -174,6 +193,13 @@ function handleLockDown(evt) {
   // Les panneaux d'indices captent le tap en priorité (et bloquent les
   // molettes tant qu'ils sont ouverts).
   if (handleHintsDown(pos)) return;
+
+  // Bouton "Valider" : c'est le seul déclencheur de vérification du code.
+  if (pointInRect(pos, lockValidateButton())) {
+    playClickSound();
+    validateLockAttempt();
+    return;
+  }
 
   const t = getLockTransform();
   const w = lockWheelAt(pos, t);
@@ -215,17 +241,40 @@ canvas.addEventListener('pointermove', (evt) => {
 
 // --- Mise à jour ---
 
-// Toutes les molettes sont-elles posées (calées sur un entier, aucune glissée) ?
-function lockSettled() {
-  if (lockDragWheel !== -1) return false;
+// Toutes les molettes sont-elles sur 0 (état initial, aucune tentative) ?
+function lockAllZero() {
   for (let i = 0; i < 6; i++) {
-    if (Math.abs(lockPos[i] - Math.round(lockPos[i])) > 0.02) return false;
+    if (mod10(lockPos[i]) !== 0) return false;
   }
   return true;
 }
 
-function lockComboString() {
-  return lockPos.map((p) => mod10(p)).join('');
+// Validation d'une tentative, déclenchée uniquement par le bouton "Valider".
+// 000000 est l'état initial : on ne le considère pas comme une tentative, donc
+// aucune erreur quel que soit le temps passé dessus.
+function validateLockAttempt() {
+  if (lockUnlocked || lockClosing) return;
+  if (lockAllZero()) return;
+
+  if (lockCodeMatches()) {
+    lockUnlocked = true;
+    lockUnlockStart = performance.now();
+    playCorrectSound();
+    if (lockOnUnlock) lockOnUnlock();
+    return;
+  }
+
+  // Tentative fausse : flash rouge immédiat, puis (au besoin) indice + notif
+  // différés à la fin du son "faux".
+  lockRedFlashStart = performance.now();
+  playWrongSound();
+  wrongAttempts++;
+  if (hintsUnlocked < HINTS.length && wrongAttempts >= HINT_THRESHOLDS[hintsUnlocked]) {
+    lockPendingHint = hintsUnlocked;
+    hintsUnlocked++;
+    const dur = wrongSound.duration && !isNaN(wrongSound.duration) ? wrongSound.duration * 1000 : 1200;
+    lockPendingHintTime = performance.now() + dur;
+  }
 }
 
 function updateLock(dt) {
@@ -241,51 +290,22 @@ function updateLock(dt) {
     }
   }
 
+  // Tick de molette : la molette n'est réputée "changer de chiffre" qu'après
+  // avoir franchi le demi-pas + une marge d'hystérésis. Un seul tick par chiffre,
+  // même si le pointeur tremble autour de la bascule. La boucle "while" gère les
+  // défilements rapides (plusieurs chiffres en une frame) sans rafale : un tick.
+  for (let i = 0; i < 6; i++) {
+    let changed = false;
+    while (lockPos[i] > lockShownIndex[i] + 0.5 + LOCK_TICK_HYSTERESIS) { lockShownIndex[i]++; changed = true; }
+    while (lockPos[i] < lockShownIndex[i] - 0.5 - LOCK_TICK_HYSTERESIS) { lockShownIndex[i]--; changed = true; }
+    if (changed && !lockUnlocked) playMoletteSound();
+  }
+
   // Indice en attente : proposé (+ notif) seulement une fois le son "faux" fini.
   if (lockPendingHint >= 0 && performance.now() >= lockPendingHintTime) {
     hintOfferIndex = lockPendingHint;
     lockPendingHint = -1;
     playNotifSound();
-  }
-
-  // Déverrouillage : dès que le code est composé et que rien ne glisse.
-  if (!lockUnlocked && lockDragWheel === -1 && lockCodeMatches()) {
-    lockUnlocked = true;
-    lockUnlockStart = performance.now();
-    playCorrectSound();
-    if (lockOnUnlock) lockOnUnlock();
-    return;
-  }
-
-  // Mauvaise combinaison maintenue : flash rouge au bout de LOCK_WRONG_HOLD.
-  if (lockUnlocked) return;
-  if (!lockSettled()) {
-    lockSettleTimer = 0;
-    return;
-  }
-  const combo = lockComboString();
-  if (combo !== lockLastCombo) {
-    // Nouvelle combinaison posée : on repart du début.
-    lockLastCombo = combo;
-    lockSettleTimer = 0;
-    lockWrongFlashed = false;
-    return;
-  }
-  if (lockWrongFlashed) return; // déjà signalée, on n'insiste pas
-  lockSettleTimer += dt * 1000;
-  if (lockSettleTimer >= LOCK_WRONG_HOLD) {
-    lockWrongFlashed = true;
-    lockRedFlashStart = performance.now();
-    playWrongSound();
-    wrongAttempts++;
-    // Seuil atteint : on n'affiche l'indice + la notif qu'une fois le son
-    // "faux" terminé (on programme leur apparition pour plus tard).
-    if (hintsUnlocked < HINTS.length && wrongAttempts >= HINT_THRESHOLDS[hintsUnlocked]) {
-      lockPendingHint = hintsUnlocked;
-      hintsUnlocked++;
-      const dur = wrongSound.duration && !isNaN(wrongSound.duration) ? wrongSound.duration * 1000 : 1200;
-      lockPendingHintTime = performance.now() + dur;
-    }
   }
 }
 
@@ -406,12 +426,56 @@ function drawLockScene(assets, elapsed, dt) {
   for (let i = 0; i < 6; i++) drawLockWheel(i, t, assets.cadenasFrames[0], bx);
   ctx.restore();
 
-  // Flash vert de confirmation au déverrouillage, ou flash rouge quand une
-  // mauvaise combinaison a été maintenue trop longtemps.
+  // Titre + bouton Valider, tant que le cadenas n'est pas ouvert et qu'aucun
+  // panneau d'indice n'est ouvert (ceux-ci ont leur propre fond assombri).
+  if (!lockUnlocked && hintOfferIndex < 0 && hintViewIndex < 0) {
+    drawLockTitle(t.appear);
+    drawPill(assets.menuBouton, 'Valider', lockValidateButton());
+  }
+
+  // Flash vert de confirmation au déverrouillage, ou flash rouge après une
+  // tentative validée fausse.
   drawLockFlash(t, lockUnlocked ? lockUnlockStart : lockRedFlashStart,
     lockUnlocked ? [120, 255, 150] : [255, 90, 90]);
 
   if (!lockUnlocked) drawHints(assets);
+}
+
+// Titre affiché en haut de l'overlay du cadenas (police pixel, contour sombre
+// pour rester lisible par-dessus le décor assombri).
+function drawLockTitle(appear) {
+  const label = 'Trouve le code du cadenas.';
+  ctx.save();
+  ctx.globalAlpha = appear;
+  let size = Math.round(26 * uiSizeFactor());
+  ctx.font = `${size}px 'PressStart2P', monospace`;
+  // Réduit la police si le titre dépasse ~90 % de la largeur de l'écran.
+  const maxW = window.innerWidth * 0.9;
+  const measured = ctx.measureText(label).width;
+  if (measured > maxW) {
+    size = Math.floor(size * maxW / measured);
+    ctx.font = `${size}px 'PressStart2P', monospace`;
+  }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight * 0.11;
+  const o = Math.max(2, size * 0.12);
+  ctx.fillStyle = '#000000';
+  ctx.fillText(label, cx - o, cy);
+  ctx.fillText(label, cx + o, cy);
+  ctx.fillText(label, cx, cy - o);
+  ctx.fillText(label, cx, cy + o);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(label, cx, cy);
+  ctx.restore();
+}
+
+// Bouton "Valider" au centre bas de l'overlay (seul moyen de tester le code).
+function lockValidateButton() {
+  const w = Math.min(window.innerWidth * 0.34, 240) * uiSizeFactor();
+  const h = w / PILL_ASPECT;
+  return { x: window.innerWidth / 2 - w / 2, y: window.innerHeight * 0.9 - h / 2, w, h };
 }
 
 // Halo coloré centré sur le cadenas, qui monte puis retombe une fois.
@@ -495,9 +559,12 @@ function dimBackdrop() {
 }
 
 // Pilule (asset) + texte centré, taille de police ajustée pour tenir dedans.
+// Grossit un peu au survol (même principe que les réponses des questions) ; le
+// texte garde sa taille de base (calculée sur le rectangle d'origine).
 function drawPill(img, text, r) {
-  ctx.drawImage(img, 0, 0, img.width, img.height, r.x, r.y, r.w, r.h);
   const fs = fitButtonFontSize(text, r.w * 0.78, r.h * 0.34);
+  r = answerHoverRect(r);
+  ctx.drawImage(img, 0, 0, img.width, img.height, r.x, r.y, r.w, r.h);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#201306';
@@ -579,5 +646,6 @@ function lockHoverInteractive(pos) {
     return pointInRect(pos, b.fermer) || (!!b.suivant && pointInRect(pos, b.suivant));
   }
   if (hintsUnlocked > 0 && pointInRect(pos, hintAccessButton())) return true;
+  if (pointInRect(pos, lockValidateButton())) return true;
   return lockWheelAt(pos, getLockTransform()) !== -1;
 }

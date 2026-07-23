@@ -9,7 +9,7 @@
 // ============================================================
 
 // ---------- Mini-jeu (pluie de chats) ----------
-const CAT_DURATION = 40;      // secondes (plus dur)
+const CAT_DURATION = 37;      // secondes
 const CAT_GOAL = 30;          // chats à sauver
 const CAT_INTRO_MS = 2200;    // court écran d'intro avant le départ du chrono
 const CAT_SPAWN_MS = 470;     // intervalle d'apparition
@@ -25,7 +25,6 @@ const CAT_LAUREN_START_X = 140;
 const CAT_LAUREN_SCALE = 0.85;
 const CAT_OBJ_X = 640;        // panier-chat posé au sol (coords design)
 const CAT_OBJ_Y = 498;
-const CAT_OBJ_W = 72;         // largeur du panier
 const CAT_OBJ_REACH = 165;    // distance max (x) pour pouvoir cliquer
 
 // ---------- Question ----------
@@ -35,7 +34,7 @@ const CAT_CORRECT = 0; // Lauren
 
 // audio miaou (rattrapage)
 const catMeow = new Audio('Assets/Sound/Chat/Miaou.mp3');
-catMeow.volume = 0.3;
+catMeow.volume = 0.14;
 registerAudioForUnlock(catMeow);
 let catLastMeow = 0;
 
@@ -112,66 +111,96 @@ function laurenNearCatObj() {
   return Math.abs(catLauren.x - CAT_OBJ_X) <= CAT_OBJ_REACH;
 }
 
-// Panier en osier (dessiné) avec un chaton qui sort la tête (bob) + halo.
-function drawCatBasketObject(containT) {
-  const scale = containT.scale;
-  const cx = containT.dx + CAT_OBJ_X * scale;
-  const gy = containT.dy + CAT_OBJ_Y * scale; // base du panier (sol)
-  const bw = CAT_OBJ_W * scale;
-  const bh = bw * 0.6;
-  const by = gy - bh; // rebord haut du panier
-  const t = performance.now();
-  const bob = Math.sin(t / 320) * bh * 0.16;
+// ---------- Panier au sol (asset Panier.png) + chaton qui dépasse ----------
+// Géométrie repérée dans Panier.png (cadre 960x540) :
+const CAT_BASKET_SPR_CX = 476;    // centre X du contenu (px sprite)
+const CAT_BASKET_SPR_BOT = 530;   // bas du panier posé au sol (px sprite)
+const CAT_BASKET_SPR_W = 536;     // largeur du contenu (px sprite)
+const CAT_BASKET_DISPLAY_W = 69.6; // largeur d'affichage du panier (px design, -13 %)
+const CAT_BASKET_RIM_Y = 206;     // ligne du rebord : le chat est masqué en dessous
+// Tête du chat : région source (dans le sprite du chat) + emplacement dans le
+// cadre du panier (px sprite). Cadré large pour remplir l'ouverture (le chaton
+// a l'air posé DANS le panier : oreilles + yeux + museau, menton sous le rebord).
+const CAT_HEAD_SRC = { x: 176, y: 15, w: 300, h: 300 };
+const CAT_HEAD_DST = { cx: 476, top: 28, size: 210 };
 
-  // halo pulsé (repère cliquable)
-  const pulse = 0.22 + Math.sin(t / 360) * 0.12;
+// Transforme le cadre 960x540 du sprite panier vers l'écran (contenu centré en
+// CAT_OBJ_X, bas posé sur le sol CAT_OBJ_Y). Renvoie {originX, originY, s} tels
+// que le point sprite (sx,sy) est à l'écran en (originX + sx*s, originY + sy*s).
+function catBasketFrame(containT) {
+  const ks = CAT_BASKET_DISPLAY_W / CAT_BASKET_SPR_W; // design px / px-sprite
+  const s = ks * containT.scale;                       // écran px / px-sprite
+  const originX = containT.dx + (CAT_OBJ_X - CAT_BASKET_SPR_CX * ks) * containT.scale;
+  const originY = containT.dy + (CAT_OBJ_Y - CAT_BASKET_SPR_BOT * ks) * containT.scale;
+  return { originX, originY, s };
+}
+
+// Rectangle écran cliquable du panier (un peu élargi pour cliquer aisément).
+function catBasketHitRect(containT) {
+  const f = catBasketFrame(containT);
+  // Boîte autour du contenu du panier (x[208..744], y[60..540] du sprite),
+  // légèrement agrandie.
+  const x1 = f.originX + 190 * f.s, x2 = f.originX + 762 * f.s;
+  const y1 = f.originY + 40 * f.s, y2 = f.originY + 540 * f.s;
+  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+}
+
+function drawCatBasketObject(containT) {
+  const f = catBasketFrame(containT);
+  const t = performance.now();
+  const bob = Math.sin(t / 320) * 6; // léger va-et-vient de la tête (px sprite)
+
+  // Halo de lumière pour attirer l'oeil (« va cliquer là-bas ») : un halo central
+  // qui respire + une étincelle qui ORBITE autour du panier (mouvement bien
+  // visible qui désigne l'objet).
+  const cxs = f.originX + CAT_BASKET_SPR_CX * f.s;
+  const cys = f.originY + 260 * f.s;
   ctx.save();
-  ctx.globalAlpha = Math.max(0, pulse);
   ctx.globalCompositeOperation = 'lighter';
-  const hr = bw * 1.05;
-  const hy = by - bh * 0.3;
-  const glow = ctx.createRadialGradient(cx, hy, 0, cx, hy, hr);
+
+  // Halo central pulsé.
+  const pulse = 0.26 + Math.sin(t / 340) * 0.14;
+  const hr = (150 + Math.sin(t / 520) * 20) * f.s;
+  ctx.globalAlpha = Math.max(0, pulse);
+  let glow = ctx.createRadialGradient(cxs, cys, 0, cxs, cys, hr);
   glow.addColorStop(0, 'rgba(255, 226, 150, 0.85)');
   glow.addColorStop(1, 'rgba(255, 226, 150, 0)');
   ctx.fillStyle = glow;
-  ctx.fillRect(cx - hr, hy - hr, hr * 2, hr * 2);
+  ctx.fillRect(cxs - hr, cys - hr, hr * 2, hr * 2);
+
+  // Étincelle qui tourne autour du panier (ellipse), pour bien montrer où aller.
+  const ang = t / 620;
+  const ox = cxs + Math.cos(ang) * 150 * f.s;
+  const oy = cys + Math.sin(ang) * 95 * f.s;
+  const sr = 34 * f.s;
+  ctx.globalAlpha = 0.9;
+  glow = ctx.createRadialGradient(ox, oy, 0, ox, oy, sr);
+  glow.addColorStop(0, 'rgba(255, 245, 200, 0.95)');
+  glow.addColorStop(1, 'rgba(255, 245, 200, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(ox - sr, oy - sr, sr * 2, sr * 2);
   ctx.restore();
 
-  // anse (derrière le chaton)
   ctx.save();
-  ctx.strokeStyle = '#8a5c22';
-  ctx.lineWidth = Math.max(2, bw * 0.07);
+  ctx.imageSmoothingEnabled = false;
+
+  // Tête du chat qui dépasse : dessinée AVANT le panier mais clippée au rebord,
+  // pour que seule la partie au-dessus du rebord soit visible (le panier, dessiné
+  // ensuite, masque tout le reste du corps).
+  ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, by, bw * 0.42, Math.PI * 1.08, Math.PI * 1.92);
-  ctx.stroke();
+  ctx.rect(0, 0, window.innerWidth, f.originY + CAT_BASKET_RIM_Y * f.s);
+  ctx.clip();
+  const hd = CAT_HEAD_DST;
+  ctx.drawImage(
+    catAssets.cats[0], CAT_HEAD_SRC.x, CAT_HEAD_SRC.y, CAT_HEAD_SRC.w, CAT_HEAD_SRC.h,
+    f.originX + (hd.cx - hd.size / 2) * f.s, f.originY + (hd.top + bob) * f.s,
+    hd.size * f.s, hd.size * f.s
+  );
   ctx.restore();
 
-  // chaton qui sort la tête (bob) — le bas sera caché par le panier
-  const cat = catAssets.cats[0];
-  const cw = bw * 0.86;
-  const ch = cw * (cat.height / cat.width);
-  const catCenterY = by - bh * 0.05 + bob;
-  ctx.drawImage(cat, cx - cw / 2, catCenterY - ch / 2, cw, ch);
-
-  // corps du panier (osier) devant le bas du chaton
-  ctx.save();
-  const bx = cx - bw / 2;
-  ctx.fillStyle = '#a9752f';
-  roundRectPath(bx, by, bw, bh, bh * 0.16);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(90, 55, 20, 0.5)';
-  ctx.lineWidth = Math.max(1, scale);
-  for (let i = 1; i < 4; i++) {
-    const yy = by + bh * i / 4;
-    ctx.beginPath();
-    ctx.moveTo(bx, yy);
-    ctx.lineTo(bx + bw, yy);
-    ctx.stroke();
-  }
-  // rebord
-  ctx.fillStyle = '#c99450';
-  roundRectPath(bx - bw * 0.05, by - bh * 0.1, bw * 1.1, bh * 0.22, bh * 0.11);
-  ctx.fill();
+  // Panier par-dessus (cadre complet du sprite).
+  ctx.drawImage(catAssets.panier, f.originX, f.originY, 960 * f.s, 540 * f.s);
   ctx.restore();
 }
 
@@ -239,7 +268,7 @@ function catSpawn() {
   cats.push({
     x: CAT_MIN_X + Math.random() * (CAT_MAX_X - CAT_MIN_X),
     y: -30,
-    vy: 130 + Math.random() * 70,
+    vy: 155 + Math.random() * 85, // vitesse de chute
     img: imgs[Math.floor(Math.random() * imgs.length)],
     sway: Math.random() * Math.PI * 2,
     rot: Math.random() * Math.PI * 2,
@@ -430,11 +459,7 @@ function handleCatDown(evt) {
 
   if (catPhase === 'walk') {
     if (!laurenNearCatObj()) return;
-    const containT = getCatContainT();
-    const cx = containT.dx + CAT_OBJ_X * containT.scale;
-    const cy = containT.dy + CAT_OBJ_Y * containT.scale;
-    const rr = CAT_OBJ_W * containT.scale;
-    if (Math.abs(pos.x - cx) <= rr && Math.abs(pos.y - cy) <= rr) {
+    if (pointInRect(pos, catBasketHitRect(getCatContainT()))) {
       playClickSound();
       catPhase = 'question';
       catQuestionStart = performance.now();
@@ -472,11 +497,7 @@ canvas.addEventListener('pointermove', (evt) => {
   const pos = getPointerPos(evt);
   let over = false;
   if (catPhase === 'walk' && laurenNearCatObj()) {
-    const containT = getCatContainT();
-    const cx = containT.dx + CAT_OBJ_X * containT.scale;
-    const cy = containT.dy + CAT_OBJ_Y * containT.scale;
-    const rr = CAT_OBJ_W * containT.scale;
-    over = Math.abs(pos.x - cx) <= rr && Math.abs(pos.y - cy) <= rr;
+    over = pointInRect(pos, catBasketHitRect(getCatContainT()));
   } else if (catPhase === 'question' && catPicked === -1 && catAllTyped()) {
     over = catAnswerRects().some((r) => pointInRect(pos, r));
   } else if (catPhase === 'lose') {

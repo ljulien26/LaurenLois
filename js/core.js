@@ -147,6 +147,11 @@ function getPointerPos(evt) {
   return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
 }
 
+// Dernière position connue du pointeur, tenue à jour en continu pour les effets
+// de survol des fonctions de rendu (qui n'ont pas l'événement sous la main).
+let pointerPos = { x: -1, y: -1 };
+canvas.addEventListener('pointermove', (evt) => { pointerPos = getPointerPos(evt); });
+
 // ---------- Clavier (déplacement des personnages sur ordinateur) ----------
 // Direction courante : -1 (gauche), 0 (immobile), +1 (droite). Flèches ← → et
 // A/Q (gauche) / D (droite), pour couvrir claviers QWERTY et AZERTY.
@@ -175,11 +180,12 @@ window.addEventListener('keydown', (e) => {
   // Sur clavier AZERTY, les chiffres se tapent avec Maj : on ne déclenche donc
   // PAS ces sauts quand la joueuse est en train de saisir son nombre au cinéma.
   if (scene === 'place5' && place5Phase === 'question') return;
-  if (['Digit3', 'Digit4', 'Digit5', 'Digit6'].includes(e.code)) setKeyboardTyping(false);
+  if (['Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'].includes(e.code)) setKeyboardTyping(false);
   if (e.code === 'Digit3') { place3Reset(); scene = 'place3'; startTime = null; }
   else if (e.code === 'Digit4') { place4Reset(); scene = 'place4'; startTime = null; }
   else if (e.code === 'Digit5') { place5Reset(); scene = 'place5'; startTime = null; }
   else if (e.code === 'Digit6') { catGameReset(); scene = 'catgame'; startTime = null; }
+  else if (e.code === 'Digit7') { place7Reset(); scene = 'place7'; startTime = null; }
 });
 
 // Indice discret rappelant que le déplacement se fait au clavier. Affiché en
@@ -307,9 +313,26 @@ function firstQuestionFontPx() {
   return fs;
 }
 
+// Facteur d'agrandissement d'une réponse au survol (léger effet de "pop").
+const ANSWER_HOVER_SCALE = 1.07;
+
+// Rectangle agrandi autour de son centre quand le pointeur le survole ; sinon
+// le rectangle d'origine. Sert à faire grossir un peu la réponse survolée.
+function answerHoverRect(r) {
+  if (!isInsideRect(pointerPos, r)) return r;
+  const g = ANSWER_HOVER_SCALE;
+  return {
+    x: r.x - (r.w * (g - 1)) / 2,
+    y: r.y - (r.h * (g - 1)) / 2,
+    w: r.w * g,
+    h: r.h * g,
+  };
+}
+
 // Dessine une pastille (image) + son texte centré, à la taille de police de
-// référence (identique aux réponses du café).
+// référence (identique aux réponses du café). Grossit un peu au survol.
 function drawAnswerPill(img, text, r) {
+  r = answerHoverRect(r);
   ctx.drawImage(img, 0, 0, img.width, img.height, r.x, r.y, r.w, r.h);
   const fs = firstQuestionFontPx();
   ctx.font = `${fs}px 'PressStart2P'`;
@@ -343,6 +366,7 @@ function answersTyping(qStart, questionText, answers) {
 
 // Comme drawAnswerPill, mais le texte s'écrit progressivement (typingState).
 function drawTypedAnswerPill(img, fullText, r, typingState) {
+  r = answerHoverRect(r);
   ctx.drawImage(img, 0, 0, img.width, img.height, r.x, r.y, r.w, r.h);
   const fs = firstQuestionFontPx();
   ctx.font = `${fs}px 'PressStart2P'`;
@@ -458,6 +482,10 @@ function loop(timestamp, assets) {
     drawPlace5Scene(assets, elapsed, dt);
   } else if (scene === 'catgame') {
     drawCatGameScene(assets, elapsed, dt);
+  } else if (scene === 'place7') {
+    drawPlace7Scene(assets, elapsed, dt);
+  } else if (scene === 'fireworks') {
+    drawFireworksScene(assets, elapsed, dt);
   }
 
   requestAnimationFrame((ts) => loop(ts, assets));

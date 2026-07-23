@@ -16,7 +16,7 @@ const PLACE3_TICKETS = ['Heureux gagnants', 'Le ticket gagnant', 'La chance sour
 const PLACE3_CORRECT = 0; // "Heureux gagnants" révèle VRAI
 
 const PLACE3_GROUND_Y = 505;
-const PLACE3_LAUREN_SCALE = 0.82;
+const PLACE3_LAUREN_SCALE = 0.8907; // +7 % puis +1,5 % par rapport à 0.82
 const PLACE3_LAUREN_START_X = -70;
 const PLACE3_LAUREN_READY_X = 150;
 const PLACE3_LAUREN_MIN_X = 60;
@@ -324,7 +324,7 @@ function place3Win() {
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffd76a';
   ctx.font = `${Math.round(window.innerHeight * 0.07)}px 'PressStart2P'`;
-  ctx.fillText('GAGNÉ !', window.innerWidth / 2, window.innerHeight * 0.5);
+  ctx.fillText('Bravo !', window.innerWidth / 2, window.innerHeight * 0.5);
   ctx.restore();
 }
 

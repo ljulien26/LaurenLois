@@ -249,13 +249,14 @@ function drawPlace2Question(assets) {
     if (!a.visible) return; // pas encore son tour
     let img = assets.menuBouton;
     if (place2Picked === i) img = place2PickedCorrect ? assets.quizGood : assets.quizBad;
-    ctx.drawImage(img, 0, 0, img.width, img.height, r.x, r.y, r.w, r.h);
+    const rr = answerHoverRect(r); // grossit un peu au survol
+    ctx.drawImage(img, 0, 0, img.width, img.height, rr.x, rr.y, rr.w, rr.h);
 
     let text = PLACE2_ANSWERS[i].slice(0, a.shown);
     if (!a.full) text += place2Caret();
     ctx.font = `${fontPx}px 'PressStart2P'`;
     ctx.fillStyle = '#201306';
-    ctx.fillText(text, r.x + r.w / 2, r.y + r.h / 2 + fontPx * 0.05);
+    ctx.fillText(text, rr.x + rr.w / 2, rr.y + rr.h / 2 + fontPx * 0.05);
   });
 }
 

@@ -261,7 +261,7 @@ function unlockAudio() {
 // plus longtemps qu'elle. L'écran final (décor 8) a SA propre musique : la
 // boucle s'y arrête en fondu, comme au menu.
 const GAME_MUSIC_SCENES = ['place', 'place2', 'place3', 'place4', 'place5', 'catgame', 'place7'];
-const GAME_MUSIC_VOLUME = 0.3; // discret : les questions et les sons priment
+const GAME_MUSIC_VOLUME = 0.18; // très discret : les questions et les sons priment
 const GAME_MUSIC_FADE_MS = 900;
 
 const gameMusic = new Audio('Assets/Sound/Générique/maksymmalko-gaming-game-minecraft-background-music-372242.mp3');

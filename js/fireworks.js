@@ -133,16 +133,16 @@ const FW_GROUND_Y = 512;      // niveau des pieds sur la promenade
 const FW_COUPLE_X = 480;      // centre du couple (milieu du décor)
 const FW_LAUREN_SCALE = 0.86;
 const FW_LOIS_SCALE = 1.0;    // Loïs légèrement plus grand (son sprite est plus petit dans son canevas)
-const FW_CLL_SCALE = 0.99;    // sprite du couple : mêmes tailles apparentes qu'à deux
+const FW_CLL_SCALE = 1.0;     // sprite du couple : +1 % pendant le câlin
 
 // Un canevas de sprite fait 96x128 pour une hauteur dessinée de CHARACTER_HEIGHT
 // * scale : voici la taille (en unités décor) d'un pixel de ce canevas.
 function fwSpritePx(scale) { return (CHARACTER_HEIGHT * scale) / 128; }
 
-// Écart entre les CORPS des deux personnages : bras tendus, puis enlacés
-// (mesuré pour coller au sprite CLL, afin qu'il n'y ait pas de saut).
-const FW_COUPLE_GAP_OPEN = 70;
-const FW_COUPLE_GAP_HUG = 40;
+// Écart entre les CORPS des deux personnages : ils marchent DIRECTEMENT jusqu'à
+// l'écart de l'étreinte (celui mesuré sur le sprite CLL), donc ni glissement ni
+// décalage au moment d'enchaîner sur le câlin — juste les bras qui s'ouvrent.
+const FW_COUPLE_GAP = 40;
 // Le corps n'est pas centré dans le canevas du sprite (bras tendu d'un côté) :
 // décalage mesuré entre le centre du corps et le centre du canevas.
 const FW_LOIS_BODY_OFF = -3.5 * fwSpritePx(FW_LOIS_SCALE);
@@ -151,17 +151,16 @@ const FW_LAUREN_BODY_OFF = 3.5 * fwSpritePx(FW_LAUREN_SCALE);
 const FW_CLL_CENTER_OFF = 4 * fwSpritePx(FW_CLL_SCALE);
 
 const FW_COUPLE_START = 700;  // ms avant que les deux se mettent en marche
-const FW_CALIN_HOLD = 500;    // ms bras tendus, immobiles
-const FW_CALIN_CLOSE = 600;   // ms pour se rapprocher jusqu'à l'accolade
+const FW_CALIN_HOLD = 700;    // ms bras ouverts, l'un contre l'autre
 const FW_CLL_FRAME = 260;     // ms par image de l'étreinte (CLL1 -> CLL4)
 const FW_HEART_MIN_GAP = 0.45, FW_HEART_MAX_GAP = 0.95; // s entre deux cœurs
 
 const FW_LOIS_START_X = -90;   // hors écran à gauche
 const FW_LAUREN_START_X = 1050; // hors écran à droite
 
-// Position (centre du canevas) de chacun pour un écart de corps donné.
-function fwLoisX(gap) { return FW_COUPLE_X - gap / 2 - FW_LOIS_BODY_OFF; }
-function fwLaurenX(gap) { return FW_COUPLE_X + gap / 2 - FW_LAUREN_BODY_OFF; }
+// Position d'arrêt (centre du canevas) de chacun, pour l'écart de l'étreinte.
+const FW_LOIS_END_X = FW_COUPLE_X - FW_COUPLE_GAP / 2 - FW_LOIS_BODY_OFF;
+const FW_LAUREN_END_X = FW_COUPLE_X + FW_COUPLE_GAP / 2 - FW_LAUREN_BODY_OFF;
 
 const fwLois = createCharacter(FW_LOIS_START_X, 'right', LOIS_VISIBLE_WIDTH_RATIO, 4, FW_LOIS_SCALE, 2);
 const fwLauren = createCharacter(FW_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, FW_LAUREN_SCALE, 2);
@@ -225,24 +224,17 @@ function fwUpdateCouple(dt, elapsed) {
   if (fwCoupleStep === 'attente') {
     if (elapsed >= FW_COUPLE_START) {
       fwCoupleStep = 'marche';
-      characterWalkTo(fwLois, fwLoisX(FW_COUPLE_GAP_OPEN));
-      characterWalkTo(fwLauren, fwLaurenX(FW_COUPLE_GAP_OPEN));
+      characterWalkTo(fwLois, FW_LOIS_END_X);
+      characterWalkTo(fwLauren, FW_LAUREN_END_X);
     }
   } else if (fwCoupleStep === 'marche') {
     updateCharacter(fwLois, dt);
     updateCharacter(fwLauren, dt);
-    updateWalkSound(dt, fwLois.walking || fwLauren.walking);
     if (!fwLois.walking && !fwLauren.walking) { fwCoupleStep = 'calin'; fwCoupleStepStart = now; }
   } else if (fwCoupleStep === 'calin') {
-    // Bras tendus un instant, puis ils se rapprochent doucement jusqu'à
-    // l'écart de l'étreinte (enchaînement sans saut avec le sprite CLL).
-    const k = Math.max(0, Math.min(1, (now - fwCoupleStepStart - FW_CALIN_HOLD) / FW_CALIN_CLOSE));
-    const ease = k * k * (3 - 2 * k);
-    const gap = FW_COUPLE_GAP_OPEN + (FW_COUPLE_GAP_HUG - FW_COUPLE_GAP_OPEN) * ease;
-    fwLois.x = fwLoisX(gap);
-    fwLauren.x = fwLaurenX(gap);
-    updateWalkSound(dt, false);
-    if (k >= 1) { fwCoupleStep = 'etreinte'; fwCoupleStepStart = now; }
+    // Bras ouverts, déjà l'un contre l'autre : le sprite du couple enchaîne
+    // pile à la même place (aucun glissement).
+    if (now - fwCoupleStepStart >= FW_CALIN_HOLD) { fwCoupleStep = 'etreinte'; fwCoupleStepStart = now; }
   } else if (fwCoupleStep === 'etreinte') {
     fwCllFrame = Math.min(3, Math.floor((now - fwCoupleStepStart) / FW_CLL_FRAME));
     if (fwCllFrame >= 3) { fwCoupleStep = 'coeurs'; fwHeartTimer = 0.2; }
@@ -254,6 +246,10 @@ function fwUpdateCouple(dt, elapsed) {
       fwHeartTimer = FW_HEART_MIN_GAP + Math.random() * (FW_HEART_MAX_GAP - FW_HEART_MIN_GAP);
     }
   }
+
+  // Bruit de pas : mis à jour à CHAQUE image, dès que l'un des deux marche
+  // (et fondu à zéro dès qu'ils s'arrêtent).
+  updateWalkSound(dt, fwLois.walking || fwLauren.walking);
 
   for (let i = fwHearts.length - 1; i >= 0; i--) {
     const h = fwHearts[i];

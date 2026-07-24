@@ -123,12 +123,7 @@ Promise.all([
     Promise.all(photoPaths).then((finalPhotos) => {
       assets.finalPhotos = finalPhotos;
 
-      // --- DEBUG (à retirer pour la version finale) : on démarre directement
-      // sur l'écran final (décor 8) pour travailler l'animation de fin.
-      // Départ normal du jeu : voir `let scene = 'premenu'` dans core.js.
-      fireworksReset();
-      scene = 'fireworks';
-
+      // Départ normal du jeu (voir `let scene = 'premenu'` dans core.js).
       requestAnimationFrame((ts) => loop(ts, assets));
     });
   })

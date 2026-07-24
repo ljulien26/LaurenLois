@@ -255,6 +255,33 @@ function unlockAudio() {
   });
 }
 
+// ---------- Musique de fond des décors (1 à 7) ----------
+// Une seule boucle, commune à tous les décors jouables : elle démarre au décor 1
+// et tourne jusqu'au décor 7 inclus, en repartant du début si la partie dure
+// plus longtemps qu'elle. L'écran final (décor 8) a SA propre musique : la
+// boucle s'y arrête en fondu, comme au menu.
+const GAME_MUSIC_SCENES = ['place', 'place2', 'place3', 'place4', 'place5', 'catgame', 'place7'];
+const GAME_MUSIC_VOLUME = 0.3; // discret : les questions et les sons priment
+const GAME_MUSIC_FADE_MS = 900;
+
+const gameMusic = new Audio('Assets/Sound/Générique/maksymmalko-gaming-game-minecraft-background-music-372242.mp3');
+gameMusic.loop = true;
+gameMusic.volume = 0;
+registerAudioForUnlock(gameMusic);
+
+function updateGameMusic(dt) {
+  const inGame = GAME_MUSIC_SCENES.includes(scene);
+  const target = inGame ? GAME_MUSIC_VOLUME : 0;
+
+  if (inGame && gameMusic.paused) gameMusic.play().catch(() => {});
+
+  const step = ((dt * 1000) / GAME_MUSIC_FADE_MS) * GAME_MUSIC_VOLUME;
+  if (gameMusic.volume < target) gameMusic.volume = Math.min(target, gameMusic.volume + step);
+  else if (gameMusic.volume > target) gameMusic.volume = Math.max(target, gameMusic.volume - step);
+
+  if (!inGame && !gameMusic.paused && gameMusic.volume === 0) gameMusic.pause();
+}
+
 // ---------- Questions "machine à écrire" + son clavier ----------
 // Toute question du jeu s'écrit caractère par caractère. Le son clavier (un
 // clip continu, partagé) tourne pendant l'écriture via setKeyboardTyping() et
@@ -476,6 +503,9 @@ function loop(timestamp, assets) {
   // quel que soit le fond CSS de la page.
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+
+  // Musique de fond des décors 1 à 7 (pilotée par la scène courante).
+  updateGameMusic(dt);
 
   if (scene === 'premenu') {
     drawPreMenuScene(assets, dt);

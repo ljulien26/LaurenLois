@@ -11,23 +11,15 @@
 
 const LOCK_CODE = [3, 0, 0, 3, 2, 4];
 
-// Son de molette : petit "tick" joué au passage d'un chiffre à l'autre. On
-// prépare un pool de clips identiques que l'on fait tourner, pour que des ticks
-// rapprochés (défilement rapide) se chevauchent sans se couper les uns les
-// autres → défilement fluide.
-const LOCK_WHEEL_SOUND_POOL = [];
-for (let i = 0; i < 6; i++) {
-  const a = new Audio('Assets/Sound/10.CadenasMolette.wav');
-  a.volume = 0.45;
-  registerAudioForUnlock(a);
-  LOCK_WHEEL_SOUND_POOL.push(a);
-}
-let lockWheelSoundIdx = 0;
+// Son de molette : petit "tick" joué au passage d'un chiffre à l'autre. UN SEUL
+// clip, relancé depuis le début à chaque passage : on entend donc toujours UN
+// SEUL tick à la fois, jamais plusieurs superposés, même en défilant vite.
+const lockWheelSound = new Audio('Assets/Sound/10.CadenasMolette.wav');
+lockWheelSound.volume = 0.45;
+registerAudioForUnlock(lockWheelSound);
 function playMoletteSound() {
-  const a = LOCK_WHEEL_SOUND_POOL[lockWheelSoundIdx];
-  lockWheelSoundIdx = (lockWheelSoundIdx + 1) % LOCK_WHEEL_SOUND_POOL.length;
-  a.currentTime = 0;
-  a.play().catch(() => {});
+  lockWheelSound.currentTime = 0;
+  lockWheelSound.play().catch(() => {});
 }
 
 // Géométrie dans l'espace natif du sprite (960x540), repérée sur 17.png.

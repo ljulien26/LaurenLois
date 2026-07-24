@@ -108,6 +108,7 @@ let fwTextTriggered = false;
 let fwTextDot = 3;        // taille (px écran) d'un point du message
 let fwEndStart = 0;
 let fwAudioUnlocked = false;
+let fwSkipFadeIn = false; // vrai si l'écran d'attente a déjà affiché le décor
 let fwAssets = null;
 
 function fwScale() { return window.innerHeight / 540; }
@@ -152,15 +153,18 @@ const FW_COUPLE_GAP = 40;
 // décalage mesuré entre le centre du corps et le centre du canevas.
 const FW_LOIS_BODY_OFF = -3.5 * fwSpritePx(FW_LOIS_SCALE);
 const FW_LAUREN_BODY_OFF = 3.5 * fwSpritePx(FW_LAUREN_SCALE);
-// De même, le couple du sprite CLL est un peu à droite du centre du canevas
-// (les TLL, eux, sont centrés).
-const FW_CLL_CENTER_OFF = 4 * fwSpritePx(FW_CLL_SCALE);
-const FW_TLL_CENTER_OFF = 0;
+// Cadrage MESURÉ sur chaque PNG du couple (canevas 96x128) : [hauteur du
+// contenu, centre horizontal du couple]. Les images n'ont pas toutes le même
+// cadrage (TLL4 est plus haut, les TLL sont plus ou moins centrés) : on s'en
+// sert pour dessiner TOUTES les poses à la MÊME taille apparente
+// (FW_SPRITE_REF_H) et bien recentrées, sans à-coup d'une image à l'autre.
+const FW_SPRITE_REF_H = 102;
+const FW_CLL_BOX = [[102, 52], [102, 52], [101, 52], [102, 52]];
+const FW_TLL_BOX = [[104, 51.5], [104, 47], [104, 48], [108, 49.5]];
+// Le retournement part de la dernière image de l'étreinte (voir fwDrawCouple).
+const FW_TURN_BOX = [FW_CLL_BOX[FW_CLL_BOX.length - 1]].concat(FW_TLL_BOX);
 
 const FW_COUPLE_START = 700;  // ms avant que les deux se mettent en marche
-// ...mais on attend le feu vert audio (premier geste utilisateur) pour que les
-// PAS s'entendent bien dès le premier, sans jamais bloquer la scène.
-const FW_COUPLE_MAX_WAIT = 4000;
 const FW_SEQ_FRAME = 420;     // ms par image des séquences du couple (CLL, TLL)
 const FW_SEQ_BLEND = 260;     // ms de fondu enchaîné entre deux images (fluidité)
 const FW_HEART_MIN_GAP = 0.45, FW_HEART_MAX_GAP = 0.95; // s entre deux cœurs
@@ -259,7 +263,7 @@ function fwUpdateCouple(dt, elapsed) {
   const now = performance.now();
 
   if (fwCoupleStep === 'attente') {
-    if (elapsed >= FW_COUPLE_START && (audioUnlocked || elapsed >= FW_COUPLE_MAX_WAIT)) {
+    if (elapsed >= FW_COUPLE_START) {
       fwCoupleStep = 'marche';
       characterWalkTo(fwLois, FW_LOIS_END_X);
       characterWalkTo(fwLauren, FW_LAUREN_END_X);
@@ -301,20 +305,28 @@ function fwCoupleDone() {
   return fwCoupleStep === 'coeurs' || fwCoupleStep === 'retourne' || fwCoupleStep === 'regarde';
 }
 
+// Dessine UNE image du couple : redimensionnée pour que le couple fasse
+// toujours la même hauteur à l'écran, recentrée sur FW_COUPLE_X, pieds au sol.
+function fwDrawCoupleFrame(img, box, t, alpha) {
+  const scale = FW_CLL_SCALE * (FW_SPRITE_REF_H / box[0]);
+  const h = CHARACTER_HEIGHT * scale * t.scale;
+  const w = h * CHARACTER_ASPECT;
+  const x = t.dx + (FW_COUPLE_X - (box[1] - 48) * fwSpritePx(scale)) * t.scale - w / 2;
+  const y = t.dy + FW_GROUND_Y * t.scale - h;
+  if (alpha >= 1) { ctx.drawImage(img, x, y, w, h); return; }
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(img, x, y, w, h);
+  ctx.restore();
+}
+
 // Dessine le sprite du couple : un seul canevas pour les deux, avec le fondu
 // enchaîné vers l'image suivante de la séquence.
-function fwDrawCoupleSprite(frames, centerOff, t) {
-  const h = CHARACTER_HEIGHT * FW_CLL_SCALE * t.scale;
-  const w = h * CHARACTER_ASPECT;
-  const x = t.dx + (FW_COUPLE_X - centerOff) * t.scale - w / 2;
-  const y = t.dy + FW_GROUND_Y * t.scale - h;
+function fwDrawCoupleSprite(frames, boxes, t) {
   const i = Math.min(fwSeqFrame, frames.length - 1);
-  ctx.drawImage(frames[i], x, y, w, h);
+  fwDrawCoupleFrame(frames[i], boxes[i], t, 1);
   if (fwSeqBlend > 0 && i + 1 < frames.length) {
-    ctx.save();
-    ctx.globalAlpha = fwSeqBlend * fwSeqBlend * (3 - 2 * fwSeqBlend);
-    ctx.drawImage(frames[i + 1], x, y, w, h);
-    ctx.restore();
+    fwDrawCoupleFrame(frames[i + 1], boxes[i + 1], t, fwSeqBlend * fwSeqBlend * (3 - 2 * fwSeqBlend));
   }
 }
 
@@ -357,9 +369,9 @@ function fwDrawCouple(assets) {
     // Le retournement part de l'étreinte : CLL4 fondu dans TLL1..4, pour ne
     // pas couper net entre les deux séquences.
     if (!fwTurnFrames) fwTurnFrames = [assets.cll[assets.cll.length - 1]].concat(assets.tll);
-    fwDrawCoupleSprite(fwTurnFrames, FW_TLL_CENTER_OFF, t);
+    fwDrawCoupleSprite(fwTurnFrames, FW_TURN_BOX, t);
   } else {
-    fwDrawCoupleSprite(assets.cll, FW_CLL_CENTER_OFF, t);
+    fwDrawCoupleSprite(assets.cll, FW_CLL_BOX, t);
   }
   fwDrawHearts(t);
   ctx.restore();
@@ -367,6 +379,7 @@ function fwDrawCouple(assets) {
 
 function fireworksReset() {
   fwPhase = 'arrivee';
+  fwSkipFadeIn = false;
   fwCoupleReset();
   fwParticles = [];
   fwRockets = [];
@@ -415,11 +428,9 @@ function fwSpawnRocket(opts) {
   });
 }
 
-// Tap pendant la charge : petite fusée + remplissage de la jauge. Au tout
-// premier, le couple se retourne pour regarder le ciel (voir fwCoupleWatch).
+// Tap pendant la charge : petite fusée + remplissage de la jauge.
 function fwTapCharge(px) {
   const S = fwScale();
-  fwCoupleWatch();
   const x = Math.max(30, Math.min(window.innerWidth - 30, px));
   fwSpawnRocket({ x, vy: -(250 + Math.random() * 70) * S, targetY: window.innerHeight * (0.3 + Math.random() * 0.28) });
   fwTapCount++;
@@ -434,6 +445,9 @@ function fwStartShow() {
   fwShowStart = performance.now();
   fwPhotoTimer = 0;
   fwMusic.currentTime = 0; fwMusic.play().catch(() => {});
+  // Le feu est lancé : le couple se retourne pour le regarder (TLL1 -> TLL4),
+  // et aura fini de se retourner quand les fusées partiront.
+  fwCoupleWatch();
 }
 
 // Départ effectif des feux : ambiance sonore + salve d'ouverture.
@@ -782,9 +796,31 @@ function fwDrawPhoto(p, now) {
   ctx.restore();
 }
 
+// Tant que le navigateur n'a pas eu son geste utilisateur, AUCUN son n'est
+// autorisé : l'arrivée du couple se jouerait sans le bruit de pas. On gèle donc
+// le début de la scène (décor de jour + invite à cliquer) jusqu'au premier clic.
+// En jeu normal l'audio est débloqué depuis le pré-menu : rien ne s'affiche
+// jamais ici. Utile surtout quand on démarre directement sur l'écran final.
+function fwDrawWaitForAudio(assets) {
+  const W = window.innerWidth, H = window.innerHeight, t = performance.now();
+  fwDrawBackground(assets, 0);
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.globalAlpha = 0.72 + 0.28 * Math.sin(t / 420);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `${Math.round(H * 0.032)}px 'PressStart2P'`;
+  ctx.fillText('Clique pour commencer', W / 2, H * 0.5);
+  ctx.restore();
+  canvas.style.cursor = 'pointer';
+  startTime = null;      // le temps de la scène ne démarre qu'au clic
+  fwSkipFadeIn = true;   // le décor est déjà à l'écran : pas de fondu au noir
+}
+
 // --- Rendu ---
 function drawFireworksScene(assets, elapsed, dt) {
   fwAssets = assets;
+  if (fwPhase === 'arrivee' && !audioUnlocked) { fwDrawWaitForAudio(assets); return; }
   updateFireworks(dt, elapsed);
   const W = window.innerWidth, H = window.innerHeight, t = performance.now(), S = fwScale();
   canvas.style.cursor = fwPhase === 'charge' ? 'pointer' : 'default';
@@ -882,7 +918,7 @@ function drawFireworksScene(assets, elapsed, dt) {
     ctx.restore();
   }
 
-  drawSceneFadeIn(elapsed, 600);
+  if (!fwSkipFadeIn) drawSceneFadeIn(elapsed, 600);
 }
 
 // --- Entrées ---

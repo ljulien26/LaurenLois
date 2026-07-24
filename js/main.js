@@ -58,6 +58,13 @@ Promise.all([
   loadImage('Assets/Jeu/Places/8/3.png'), // décor final : nuit
   loadImage('Assets/Jeu/Places/7.png'),   // décor 7 : Cartoucherie
   loadImage('Assets/Jeu/Puzzle/1.png'),   // photo du puzzle
+  // Écran final : les deux bras tendus, puis le sprite « couple » de l'étreinte.
+  loadImage('Assets/Persos/Lauren/Côté/Calin.png'),
+  loadImage('Assets/Persos/Loïs/Côté/Calin.png'),
+  loadImage('Assets/Persos/CLL1.png'),
+  loadImage('Assets/Persos/CLL2.png'),
+  loadImage('Assets/Persos/CLL3.png'),
+  loadImage('Assets/Persos/CLL4.png'),
 ])
   .then(([
     menuFond, menuTitre, nuagesImg, menuBouton,
@@ -77,6 +84,7 @@ Promise.all([
     cat1, cat2, cat3, panierImg,
     place8Day, place8Sunset, place8Night,
     place7Fond, puzzleImg,
+    laurenCalin, loisCalin, cll1, cll2, cll3, cll4,
   ]) => {
     createClouds(nuagesImg);
 
@@ -94,7 +102,8 @@ Promise.all([
       place7Fond, puzzle: puzzleImg,
       cadenasFrames: [cadenasClosed, cadenasOpen1],
       quizPanel, quizGood, quizBad,
-      laurenIdle,
+      laurenIdle, laurenCalin, loisCalin,
+      cll: [cll1, cll2, cll3, cll4], // étreinte de l'écran final
       laurenWalk: [laurenWalk6, laurenWalk7, laurenWalk9, laurenWalk10, laurenWalk11],
       laurenPress: [laurenPress1, laurenPress2],
       loisIdle,
@@ -108,7 +117,12 @@ Promise.all([
     Promise.all(photoPaths).then((finalPhotos) => {
       assets.finalPhotos = finalPhotos;
 
-      // Départ normal du jeu (voir `let scene = 'premenu'` dans core.js).
+      // --- DEBUG (à retirer pour la version finale) : on démarre directement
+      // sur l'écran final (décor 8) pour travailler l'animation de fin.
+      // Départ normal du jeu : voir `let scene = 'premenu'` dans core.js.
+      fireworksReset();
+      scene = 'fireworks';
+
       requestAnimationFrame((ts) => loop(ts, assets));
     });
   })

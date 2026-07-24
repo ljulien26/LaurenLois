@@ -1,6 +1,9 @@
 // ============================================================
 // Écran final (bord de Garonne). Déroulé :
-//   1) 'transition' : fondu du décor JOUR -> COUCHER -> NUIT (Places/8/1-3.png) ;
+//   1) 'arrivee'    : fondu du décor JOUR -> COUCHER -> NUIT (Places/8/1-3.png)
+//                     pendant que le COUPLE arrive (scène non jouable) : Loïs
+//                     par la gauche, Lauren par la droite, bras tendus
+//                     (Calin.png), puis étreinte (CLL1-4) et petits cœurs ;
 //   2) 'charge'     : on invite à TAPOTER (jauge). Chaque tap = petite fusée +
 //                     son de clic (le clic ne sonne QUE pendant cette phase) ;
 //   3) 'show'       : les feux se déclenchent. La MUSIQUE du générique ET
@@ -77,7 +80,7 @@ function fwPlayClick() {
 }
 
 // --- État ---
-let fwPhase = 'transition'; // 'transition' -> 'charge' -> 'show' -> 'end'
+let fwPhase = 'arrivee'; // 'arrivee' -> 'charge' -> 'show' -> 'end'
 let fwParticles = [];
 let fwRockets = [];
 let fwShowTimer = 0;
@@ -116,8 +119,205 @@ function fwShuffle(n) {
   return a;
 }
 
+// ============================================================
+// ARRIVÉE DU COUPLE (début de l'écran final, rien à faire pour la joueuse).
+// Loïs entre par la gauche et Lauren par la droite EN MÊME TEMPS. Ils se
+// rejoignent au centre et se mettent bras tendus (Côté/Calin.png), se
+// rapprochent, puis le sprite « couple » prend le relais pour l'étreinte
+// (Persos/CLL1 -> CLL4). Sur la dernière image ils restent enlacés devant le
+// feu d'artifice et de petits cœurs s'envolent.
+// Tout est exprimé dans le repère du décor (960x540), via getCoverTransform.
+// ============================================================
+
+const FW_GROUND_Y = 512;      // niveau des pieds sur la promenade
+const FW_COUPLE_X = 480;      // centre du couple (milieu du décor)
+const FW_LAUREN_SCALE = 0.86;
+const FW_LOIS_SCALE = 1.0;    // Loïs légèrement plus grand (son sprite est plus petit dans son canevas)
+const FW_CLL_SCALE = 0.99;    // sprite du couple : mêmes tailles apparentes qu'à deux
+
+// Un canevas de sprite fait 96x128 pour une hauteur dessinée de CHARACTER_HEIGHT
+// * scale : voici la taille (en unités décor) d'un pixel de ce canevas.
+function fwSpritePx(scale) { return (CHARACTER_HEIGHT * scale) / 128; }
+
+// Écart entre les CORPS des deux personnages : bras tendus, puis enlacés
+// (mesuré pour coller au sprite CLL, afin qu'il n'y ait pas de saut).
+const FW_COUPLE_GAP_OPEN = 70;
+const FW_COUPLE_GAP_HUG = 40;
+// Le corps n'est pas centré dans le canevas du sprite (bras tendu d'un côté) :
+// décalage mesuré entre le centre du corps et le centre du canevas.
+const FW_LOIS_BODY_OFF = -3.5 * fwSpritePx(FW_LOIS_SCALE);
+const FW_LAUREN_BODY_OFF = 3.5 * fwSpritePx(FW_LAUREN_SCALE);
+// De même, le couple du sprite CLL est un peu à droite du centre du canevas.
+const FW_CLL_CENTER_OFF = 4 * fwSpritePx(FW_CLL_SCALE);
+
+const FW_COUPLE_START = 700;  // ms avant que les deux se mettent en marche
+const FW_CALIN_HOLD = 500;    // ms bras tendus, immobiles
+const FW_CALIN_CLOSE = 600;   // ms pour se rapprocher jusqu'à l'accolade
+const FW_CLL_FRAME = 260;     // ms par image de l'étreinte (CLL1 -> CLL4)
+const FW_HEART_MIN_GAP = 0.45, FW_HEART_MAX_GAP = 0.95; // s entre deux cœurs
+
+const FW_LOIS_START_X = -90;   // hors écran à gauche
+const FW_LAUREN_START_X = 1050; // hors écran à droite
+
+// Position (centre du canevas) de chacun pour un écart de corps donné.
+function fwLoisX(gap) { return FW_COUPLE_X - gap / 2 - FW_LOIS_BODY_OFF; }
+function fwLaurenX(gap) { return FW_COUPLE_X + gap / 2 - FW_LAUREN_BODY_OFF; }
+
+const fwLois = createCharacter(FW_LOIS_START_X, 'right', LOIS_VISIBLE_WIDTH_RATIO, 4, FW_LOIS_SCALE, 2);
+const fwLauren = createCharacter(FW_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, FW_LAUREN_SCALE, 2);
+
+// Étapes : 'attente' -> 'marche' -> 'calin' -> 'etreinte' -> 'coeurs' (final).
+let fwCoupleStep = 'attente';
+let fwCoupleStepStart = 0;
+let fwCllFrame = 0;
+let fwHearts = [];
+let fwHeartTimer = 0;
+
+// Petit cœur pixel (7x6), dessiné case par case.
+const FW_HEART_ROWS = [
+  '0110110',
+  '1111111',
+  '1111111',
+  '0111110',
+  '0011100',
+  '0001000',
+];
+const FW_HEART_COLORS = [[255, 120, 170], [255, 80, 120], [255, 175, 200], [255, 214, 106]];
+
+function fwCoupleReset() {
+  fwCoupleStep = 'attente';
+  fwCoupleStepStart = 0;
+  fwCllFrame = 0;
+  fwHearts = [];
+  fwHeartTimer = 0;
+  fwLois.x = FW_LOIS_START_X;
+  fwLois.facing = 'right';
+  fwLois.walking = false;
+  fwLois.targetX = null;
+  fwLauren.x = FW_LAUREN_START_X;
+  fwLauren.facing = 'left';
+  fwLauren.walking = false;
+  fwLauren.targetX = null;
+}
+
+function fwCoupleT() {
+  return getCoverTransform(960, 540, window.innerWidth, window.innerHeight);
+}
+
+// Un cœur part de la hauteur des épaules, d'un côté ou de l'autre du couple.
+function fwSpawnHeart() {
+  fwHearts.push({
+    x: FW_COUPLE_X + (Math.random() * 2 - 1) * 34,
+    y: FW_GROUND_Y - 108 - Math.random() * 20,
+    vy: -(16 + Math.random() * 12),
+    sway: 5 + Math.random() * 7,
+    phase: Math.random() * 6.28,
+    cell: 1.5 + Math.random() * 1.1,
+    col: FW_HEART_COLORS[Math.floor(Math.random() * FW_HEART_COLORS.length)],
+    born: performance.now(),
+    life: 2600 + Math.random() * 1400,
+  });
+}
+
+function fwUpdateCouple(dt, elapsed) {
+  const now = performance.now();
+
+  if (fwCoupleStep === 'attente') {
+    if (elapsed >= FW_COUPLE_START) {
+      fwCoupleStep = 'marche';
+      characterWalkTo(fwLois, fwLoisX(FW_COUPLE_GAP_OPEN));
+      characterWalkTo(fwLauren, fwLaurenX(FW_COUPLE_GAP_OPEN));
+    }
+  } else if (fwCoupleStep === 'marche') {
+    updateCharacter(fwLois, dt);
+    updateCharacter(fwLauren, dt);
+    updateWalkSound(dt, fwLois.walking || fwLauren.walking);
+    if (!fwLois.walking && !fwLauren.walking) { fwCoupleStep = 'calin'; fwCoupleStepStart = now; }
+  } else if (fwCoupleStep === 'calin') {
+    // Bras tendus un instant, puis ils se rapprochent doucement jusqu'à
+    // l'écart de l'étreinte (enchaînement sans saut avec le sprite CLL).
+    const k = Math.max(0, Math.min(1, (now - fwCoupleStepStart - FW_CALIN_HOLD) / FW_CALIN_CLOSE));
+    const ease = k * k * (3 - 2 * k);
+    const gap = FW_COUPLE_GAP_OPEN + (FW_COUPLE_GAP_HUG - FW_COUPLE_GAP_OPEN) * ease;
+    fwLois.x = fwLoisX(gap);
+    fwLauren.x = fwLaurenX(gap);
+    updateWalkSound(dt, false);
+    if (k >= 1) { fwCoupleStep = 'etreinte'; fwCoupleStepStart = now; }
+  } else if (fwCoupleStep === 'etreinte') {
+    fwCllFrame = Math.min(3, Math.floor((now - fwCoupleStepStart) / FW_CLL_FRAME));
+    if (fwCllFrame >= 3) { fwCoupleStep = 'coeurs'; fwHeartTimer = 0.2; }
+  } else {
+    // Enlacés pour de bon : les cœurs continuent tout le reste de la scène.
+    fwHeartTimer -= dt;
+    if (fwHeartTimer <= 0) {
+      fwSpawnHeart();
+      fwHeartTimer = FW_HEART_MIN_GAP + Math.random() * (FW_HEART_MAX_GAP - FW_HEART_MIN_GAP);
+    }
+  }
+
+  for (let i = fwHearts.length - 1; i >= 0; i--) {
+    const h = fwHearts[i];
+    h.y += h.vy * dt;
+    if (now - h.born > h.life) fwHearts.splice(i, 1);
+  }
+}
+
+// L'étreinte est-elle terminée ? (rien d'autre ne démarre avant.)
+function fwCoupleDone() { return fwCoupleStep === 'coeurs'; }
+
+// Dessine le sprite du couple (CLL) : un seul canevas pour les deux.
+function fwDrawCll(img, t) {
+  const h = CHARACTER_HEIGHT * FW_CLL_SCALE * t.scale;
+  const w = h * CHARACTER_ASPECT;
+  const x = t.dx + (FW_COUPLE_X - FW_CLL_CENTER_OFF) * t.scale - w / 2;
+  const y = t.dy + FW_GROUND_Y * t.scale - h;
+  ctx.drawImage(img, x, y, w, h);
+}
+
+function fwDrawHearts(t) {
+  const now = performance.now();
+  for (const hp of fwHearts) {
+    const age = now - hp.born;
+    let a = 1;
+    if (age < 300) a = age / 300;
+    else if (age > hp.life - 900) a = Math.max(0, (hp.life - age) / 900);
+    if (a <= 0.02) continue;
+    const cell = Math.max(1, Math.round(hp.cell * t.scale));
+    const sx = t.dx + (hp.x + Math.sin(now / 700 + hp.phase) * hp.sway) * t.scale;
+    const sy = t.dy + hp.y * t.scale;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = `rgb(${hp.col[0]},${hp.col[1]},${hp.col[2]})`;
+    for (let r = 0; r < FW_HEART_ROWS.length; r++) {
+      const row = FW_HEART_ROWS[r];
+      for (let c = 0; c < row.length; c++) {
+        if (row[c] === '1') {
+          ctx.fillRect(Math.round(sx + (c - row.length / 2) * cell), Math.round(sy + (r - FW_HEART_ROWS.length / 2) * cell), cell, cell);
+        }
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function fwDrawCouple(assets) {
+  if (fwCoupleStep === 'attente') return;
+  const t = fwCoupleT();
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  if (fwCoupleStep === 'marche' || fwCoupleStep === 'calin') {
+    // Pendant la marche : sprites de marche ; à l'arrêt : les bras tendus.
+    drawCharacter(fwLois, assets.loisCalin, assets.loisWalk, t, null, FW_GROUND_Y);
+    drawCharacter(fwLauren, assets.laurenCalin, assets.laurenWalk, t, null, FW_GROUND_Y);
+  } else {
+    fwDrawCll(assets.cll[Math.min(fwCllFrame, assets.cll.length - 1)], t);
+  }
+  fwDrawHearts(t);
+  ctx.restore();
+}
+
 function fireworksReset() {
-  fwPhase = 'transition';
+  fwPhase = 'arrivee';
+  fwCoupleReset();
   fwParticles = [];
   fwRockets = [];
   fwShowTimer = 0;
@@ -395,7 +595,10 @@ function updateFireworks(dt, elapsed) {
   const grav = 92 * S;
   const now = performance.now();
 
-  if (fwPhase === 'transition' && elapsed >= FW_NIGHT_AT) fwPhase = 'charge';
+  // L'arrivée du couple n'attend rien de la joueuse : on ne lui propose de
+  // déclencher les feux qu'une fois la nuit tombée ET l'étreinte terminée.
+  fwUpdateCouple(dt, elapsed);
+  if (fwPhase === 'arrivee' && elapsed >= FW_NIGHT_AT && fwCoupleDone()) fwPhase = 'charge';
 
   const target = Math.min(1, fwTapCount / FW_TAP_GOAL);
   fwCharge += (target - fwCharge) * Math.min(1, dt * 8);
@@ -530,6 +733,9 @@ function drawFireworksScene(assets, elapsed, dt) {
   canvas.style.cursor = fwPhase === 'charge' ? 'pointer' : 'default';
 
   fwDrawBackground(assets, elapsed);
+
+  // Le couple : devant le décor, mais sous les feux (qui l'éclairent).
+  fwDrawCouple(assets);
 
   // Feux (additif).
   ctx.save();

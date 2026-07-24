@@ -68,6 +68,16 @@ function drawBackgroundCover(img) {
   ctx.drawImage(img, r.sx, r.sy, r.sw, r.sh, 0, 0, w, h);
 }
 
+// Transformation équivalente au fond dessiné par drawBackgroundCover : permet
+// de placer des éléments (personnages, objets) dans le repère du décor alors
+// que celui-ci remplit l'écran et déborde (surplus recadré).
+function getCoverTransform(imgW, imgH, viewW, viewH) {
+  const scale = Math.max(viewW / imgW, viewH / imgH);
+  const dw = imgW * scale;
+  const dh = imgH * scale;
+  return { scale, dx: (viewW - dw) / 2, dy: (viewH - dh) / 2, dw, dh };
+}
+
 // ---------- Fond en "contain" (toute la composition reste visible) ----------
 
 function getContainTransform(imgW, imgH, viewW, viewH) {

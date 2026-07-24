@@ -2,8 +2,8 @@
 // Écran final (bord de Garonne). Déroulé :
 //   1) 'arrivee'    : fondu du décor JOUR -> COUCHER -> NUIT (Places/8/1-3.png)
 //                     pendant que le COUPLE arrive (scène non jouable) : Loïs
-//                     par la gauche, Lauren par la droite, bras tendus
-//                     (Calin.png), puis étreinte (CLL1-4) et petits cœurs ;
+//                     par la gauche, Lauren par la droite, puis étreinte
+//                     (CLL1-4) et petits cœurs ;
 //   2) 'charge'     : on invite à TAPOTER (jauge). Chaque tap = petite fusée +
 //                     son de clic (le clic ne sonne QUE pendant cette phase) ;
 //   3) 'show'       : les feux se déclenchent. La MUSIQUE du générique ET
@@ -122,10 +122,10 @@ function fwShuffle(n) {
 // ============================================================
 // ARRIVÉE DU COUPLE (début de l'écran final, rien à faire pour la joueuse).
 // Loïs entre par la gauche et Lauren par la droite EN MÊME TEMPS. Ils se
-// rejoignent au centre et se mettent bras tendus (Côté/Calin.png), se
-// rapprochent, puis le sprite « couple » prend le relais pour l'étreinte
-// (Persos/CLL1 -> CLL4). Sur la dernière image ils restent enlacés devant le
-// feu d'artifice et de petits cœurs s'envolent.
+// rejoignent au centre, l'un contre l'autre, et le sprite « couple » prend
+// aussitôt le relais pour l'étreinte (Persos/CLL1 -> CLL4). Sur la dernière
+// image ils restent enlacés devant le feu d'artifice et de petits cœurs
+// s'envolent.
 // Tout est exprimé dans le repère du décor (960x540), via getCoverTransform.
 // ============================================================
 
@@ -133,15 +133,15 @@ const FW_GROUND_Y = 512;      // niveau des pieds sur la promenade
 const FW_COUPLE_X = 480;      // centre du couple (milieu du décor)
 const FW_LAUREN_SCALE = 0.86;
 const FW_LOIS_SCALE = 1.0;    // Loïs légèrement plus grand (son sprite est plus petit dans son canevas)
-const FW_CLL_SCALE = 1.0;     // sprite du couple : +1 % pendant le câlin
+const FW_CLL_SCALE = 1.03;    // sprite du couple : un peu plus grand pendant le câlin
 
 // Un canevas de sprite fait 96x128 pour une hauteur dessinée de CHARACTER_HEIGHT
 // * scale : voici la taille (en unités décor) d'un pixel de ce canevas.
 function fwSpritePx(scale) { return (CHARACTER_HEIGHT * scale) / 128; }
 
 // Écart entre les CORPS des deux personnages : ils marchent DIRECTEMENT jusqu'à
-// l'écart de l'étreinte (celui mesuré sur le sprite CLL), donc ni glissement ni
-// décalage au moment d'enchaîner sur le câlin — juste les bras qui s'ouvrent.
+// l'écart de l'étreinte (celui mesuré sur le sprite CLL), donc le câlin enchaîne
+// pile à la même place, sans glissement ni décalage.
 const FW_COUPLE_GAP = 40;
 // Le corps n'est pas centré dans le canevas du sprite (bras tendu d'un côté) :
 // décalage mesuré entre le centre du corps et le centre du canevas.
@@ -151,7 +151,6 @@ const FW_LAUREN_BODY_OFF = 3.5 * fwSpritePx(FW_LAUREN_SCALE);
 const FW_CLL_CENTER_OFF = 4 * fwSpritePx(FW_CLL_SCALE);
 
 const FW_COUPLE_START = 700;  // ms avant que les deux se mettent en marche
-const FW_CALIN_HOLD = 700;    // ms bras ouverts, l'un contre l'autre
 const FW_CLL_FRAME = 260;     // ms par image de l'étreinte (CLL1 -> CLL4)
 const FW_HEART_MIN_GAP = 0.45, FW_HEART_MAX_GAP = 0.95; // s entre deux cœurs
 
@@ -165,7 +164,7 @@ const FW_LAUREN_END_X = FW_COUPLE_X + FW_COUPLE_GAP / 2 - FW_LAUREN_BODY_OFF;
 const fwLois = createCharacter(FW_LOIS_START_X, 'right', LOIS_VISIBLE_WIDTH_RATIO, 4, FW_LOIS_SCALE, 2);
 const fwLauren = createCharacter(FW_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, FW_LAUREN_SCALE, 2);
 
-// Étapes : 'attente' -> 'marche' -> 'calin' -> 'etreinte' -> 'coeurs' (final).
+// Étapes : 'attente' -> 'marche' -> 'etreinte' -> 'coeurs' (final).
 let fwCoupleStep = 'attente';
 let fwCoupleStepStart = 0;
 let fwCllFrame = 0;
@@ -230,11 +229,8 @@ function fwUpdateCouple(dt, elapsed) {
   } else if (fwCoupleStep === 'marche') {
     updateCharacter(fwLois, dt);
     updateCharacter(fwLauren, dt);
-    if (!fwLois.walking && !fwLauren.walking) { fwCoupleStep = 'calin'; fwCoupleStepStart = now; }
-  } else if (fwCoupleStep === 'calin') {
-    // Bras ouverts, déjà l'un contre l'autre : le sprite du couple enchaîne
-    // pile à la même place (aucun glissement).
-    if (now - fwCoupleStepStart >= FW_CALIN_HOLD) { fwCoupleStep = 'etreinte'; fwCoupleStepStart = now; }
+    // Arrivés l'un contre l'autre : le sprite du couple enchaîne aussitôt.
+    if (!fwLois.walking && !fwLauren.walking) { fwCoupleStep = 'etreinte'; fwCoupleStepStart = now; }
   } else if (fwCoupleStep === 'etreinte') {
     fwCllFrame = Math.min(3, Math.floor((now - fwCoupleStepStart) / FW_CLL_FRAME));
     if (fwCllFrame >= 3) { fwCoupleStep = 'coeurs'; fwHeartTimer = 0.2; }
@@ -300,8 +296,9 @@ function fwDrawCouple(assets) {
   const t = fwCoupleT();
   ctx.save();
   ctx.imageSmoothingEnabled = false;
-  if (fwCoupleStep === 'marche' || fwCoupleStep === 'calin') {
-    // Pendant la marche : sprites de marche ; à l'arrêt : les bras tendus.
+  if (fwCoupleStep === 'marche') {
+    // Chacun de son côté, en marchant (Calin.png sert de pose d'arrêt, mais
+    // l'étreinte prend le relais dès qu'ils s'arrêtent).
     drawCharacter(fwLois, assets.loisCalin, assets.loisWalk, t, null, FW_GROUND_Y);
     drawCharacter(fwLauren, assets.laurenCalin, assets.laurenWalk, t, null, FW_GROUND_Y);
   } else {

@@ -65,6 +65,11 @@ Promise.all([
   loadImage('Assets/Persos/CLL2.png'),
   loadImage('Assets/Persos/CLL3.png'),
   loadImage('Assets/Persos/CLL4.png'),
+  // ...puis ils se retournent, main dans la main, pour regarder le feu.
+  loadImage('Assets/Persos/TLL1.png'),
+  loadImage('Assets/Persos/TLL2.png'),
+  loadImage('Assets/Persos/TLL3.png'),
+  loadImage('Assets/Persos/TLL4.png'),
 ])
   .then(([
     menuFond, menuTitre, nuagesImg, menuBouton,
@@ -84,7 +89,7 @@ Promise.all([
     cat1, cat2, cat3, panierImg,
     place8Day, place8Sunset, place8Night,
     place7Fond, puzzleImg,
-    laurenCalin, loisCalin, cll1, cll2, cll3, cll4,
+    laurenCalin, loisCalin, cll1, cll2, cll3, cll4, tll1, tll2, tll3, tll4,
   ]) => {
     createClouds(nuagesImg);
 
@@ -104,6 +109,7 @@ Promise.all([
       quizPanel, quizGood, quizBad,
       laurenIdle, laurenCalin, loisCalin,
       cll: [cll1, cll2, cll3, cll4], // étreinte de l'écran final
+      tll: [tll1, tll2, tll3, tll4], // ...puis ils regardent le feu, de dos
       laurenWalk: [laurenWalk6, laurenWalk7, laurenWalk9, laurenWalk10, laurenWalk11],
       laurenPress: [laurenPress1, laurenPress2],
       loisIdle,

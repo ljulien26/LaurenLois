@@ -5,7 +5,9 @@
 //                     par la gauche, Lauren par la droite, puis étreinte
 //                     (CLL1-4) et petits cœurs ;
 //   2) 'charge'     : on invite à TAPOTER (jauge). Chaque tap = petite fusée +
-//                     son de clic (le clic ne sonne QUE pendant cette phase) ;
+//                     son de clic (le clic ne sonne QUE pendant cette phase).
+//                     Au PREMIER tap, le couple se retourne (TLL1-4) et restera
+//                     de dos, main dans la main, à regarder le ciel ;
 //   3) 'show'       : les feux se déclenchent. La MUSIQUE du générique ET
 //                     l'AMBIANCE des feux démarrent ENSEMBLE, en boucle, en fond.
 //                     Après quelques secondes : message « Bon anniversaire »
@@ -126,8 +128,9 @@ function fwShuffle(n) {
 // Loïs entre par la gauche et Lauren par la droite EN MÊME TEMPS. Ils se
 // rejoignent au centre, l'un contre l'autre, et le sprite « couple » prend
 // aussitôt le relais pour l'étreinte (Persos/CLL1 -> CLL4). Sur la dernière
-// image ils restent enlacés devant le feu d'artifice et de petits cœurs
-// s'envolent.
+// image ils restent enlacés, de petits cœurs s'envolent — puis, dès qu'elle
+// clique pour lancer les feux, ils se retournent (Persos/TLL1 -> TLL4) et
+// restent de dos, main dans la main, à regarder le ciel.
 // Tout est exprimé dans le repère du décor (960x540), via getCoverTransform.
 // ============================================================
 
@@ -149,15 +152,17 @@ const FW_COUPLE_GAP = 40;
 // décalage mesuré entre le centre du corps et le centre du canevas.
 const FW_LOIS_BODY_OFF = -3.5 * fwSpritePx(FW_LOIS_SCALE);
 const FW_LAUREN_BODY_OFF = 3.5 * fwSpritePx(FW_LAUREN_SCALE);
-// De même, le couple du sprite CLL est un peu à droite du centre du canevas.
+// De même, le couple du sprite CLL est un peu à droite du centre du canevas
+// (les TLL, eux, sont centrés).
 const FW_CLL_CENTER_OFF = 4 * fwSpritePx(FW_CLL_SCALE);
+const FW_TLL_CENTER_OFF = 0;
 
 const FW_COUPLE_START = 700;  // ms avant que les deux se mettent en marche
 // ...mais on attend le feu vert audio (premier geste utilisateur) pour que les
 // PAS s'entendent bien dès le premier, sans jamais bloquer la scène.
 const FW_COUPLE_MAX_WAIT = 4000;
-const FW_CLL_FRAME = 420;     // ms par image de l'étreinte (CLL1 -> CLL4)
-const FW_CLL_BLEND = 260;     // ms de fondu enchaîné entre deux images (fluidité)
+const FW_SEQ_FRAME = 420;     // ms par image des séquences du couple (CLL, TLL)
+const FW_SEQ_BLEND = 260;     // ms de fondu enchaîné entre deux images (fluidité)
 const FW_HEART_MIN_GAP = 0.45, FW_HEART_MAX_GAP = 0.95; // s entre deux cœurs
 
 const FW_LOIS_START_X = -90;   // hors écran à gauche
@@ -170,11 +175,13 @@ const FW_LAUREN_END_X = FW_COUPLE_X + FW_COUPLE_GAP / 2 - FW_LAUREN_BODY_OFF;
 const fwLois = createCharacter(FW_LOIS_START_X, 'right', LOIS_VISIBLE_WIDTH_RATIO, 4, FW_LOIS_SCALE, 2);
 const fwLauren = createCharacter(FW_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, FW_LAUREN_SCALE, 2);
 
-// Étapes : 'attente' -> 'marche' -> 'etreinte' -> 'coeurs' (final).
+// Étapes : 'attente' -> 'marche' -> 'etreinte' (CLL) -> 'coeurs' -> (elle clique)
+// 'retourne' (TLL) -> 'regarde' (TLL4, ils ne bougent plus).
 let fwCoupleStep = 'attente';
 let fwCoupleStepStart = 0;
-let fwCllFrame = 0;
-let fwCllBlend = 0; // 0..1 : fondu vers l'image suivante de l'étreinte
+let fwSeqFrame = 0;
+let fwSeqBlend = 0; // 0..1 : fondu vers l'image suivante de la séquence
+let fwTurnFrames = null; // CLL4 + TLL1..4 (mémorisé : pas d'allocation par image)
 let fwHearts = [];
 let fwHeartTimer = 0;
 
@@ -192,8 +199,8 @@ const FW_HEART_COLORS = [[255, 120, 170], [255, 80, 120], [255, 175, 200], [255,
 function fwCoupleReset() {
   fwCoupleStep = 'attente';
   fwCoupleStepStart = 0;
-  fwCllFrame = 0;
-  fwCllBlend = 0;
+  fwSeqFrame = 0;
+  fwSeqBlend = 0;
   fwHearts = [];
   fwHeartTimer = 0;
   fwLois.x = FW_LOIS_START_X;
@@ -225,6 +232,29 @@ function fwSpawnHeart() {
   });
 }
 
+// Avance la séquence d'images en cours (une image tenue, puis fondue dans la
+// suivante). Renvoie true quand la dernière image est atteinte.
+function fwStepSequence(now, lastIndex) {
+  const e = now - fwCoupleStepStart;
+  const i = Math.floor(e / FW_SEQ_FRAME);
+  fwSeqFrame = Math.min(lastIndex, i);
+  const inFrame = e - i * FW_SEQ_FRAME;
+  fwSeqBlend = i >= lastIndex
+    ? 0
+    : Math.max(0, Math.min(1, (inFrame - (FW_SEQ_FRAME - FW_SEQ_BLEND)) / FW_SEQ_BLEND));
+  return i >= lastIndex;
+}
+
+// Elle vient de cliquer pour lancer les feux : le couple se détache et se
+// retourne (TLL) pour regarder le ciel jusqu'à la fin.
+function fwCoupleWatch() {
+  if (fwCoupleStep !== 'coeurs') return;
+  fwCoupleStep = 'retourne';
+  fwCoupleStepStart = performance.now();
+  fwSeqFrame = 0;
+  fwSeqBlend = 0;
+}
+
 function fwUpdateCouple(dt, elapsed) {
   const now = performance.now();
 
@@ -240,22 +270,20 @@ function fwUpdateCouple(dt, elapsed) {
     // Arrivés l'un contre l'autre : le sprite du couple enchaîne aussitôt.
     if (!fwLois.walking && !fwLauren.walking) { fwCoupleStep = 'etreinte'; fwCoupleStepStart = now; }
   } else if (fwCoupleStep === 'etreinte') {
-    // Chaque image est tenue, puis fondue dans la suivante : les bras se
-    // referment en continu au lieu de sauter d'une pose à l'autre.
-    const e = now - fwCoupleStepStart;
-    const i = Math.floor(e / FW_CLL_FRAME);
-    fwCllFrame = Math.min(3, i);
-    const inFrame = e - i * FW_CLL_FRAME;
-    fwCllBlend = i >= 3 ? 0 : Math.max(0, Math.min(1, (inFrame - (FW_CLL_FRAME - FW_CLL_BLEND)) / FW_CLL_BLEND));
-    if (i >= 3) { fwCoupleStep = 'coeurs'; fwHeartTimer = 0.2; }
-  } else {
-    // Enlacés pour de bon : les cœurs continuent tout le reste de la scène.
+    // CLL1 -> CLL4 : les bras se referment en continu (fondu enchaîné).
+    if (fwStepSequence(now, 3)) { fwCoupleStep = 'coeurs'; fwHeartTimer = 0.2; }
+  } else if (fwCoupleStep === 'coeurs') {
+    // Enlacés, des cœurs s'envolent, en attendant qu'elle lance les feux.
     fwHeartTimer -= dt;
     if (fwHeartTimer <= 0) {
       fwSpawnHeart();
       fwHeartTimer = FW_HEART_MIN_GAP + Math.random() * (FW_HEART_MAX_GAP - FW_HEART_MIN_GAP);
     }
+  } else if (fwCoupleStep === 'retourne') {
+    // Elle a cliqué : CLL4 -> TLL1..4, ils se retournent vers le ciel.
+    if (fwStepSequence(now, 4)) fwCoupleStep = 'regarde';
   }
+  // 'regarde' : main dans la main, de dos, ils ne bougent plus.
 
   // Bruit de pas : mis à jour à CHAQUE image, dès que l'un des deux marche
   // (et fondu à zéro dès qu'ils s'arrêtent).
@@ -269,20 +297,22 @@ function fwUpdateCouple(dt, elapsed) {
 }
 
 // L'étreinte est-elle terminée ? (rien d'autre ne démarre avant.)
-function fwCoupleDone() { return fwCoupleStep === 'coeurs'; }
+function fwCoupleDone() {
+  return fwCoupleStep === 'coeurs' || fwCoupleStep === 'retourne' || fwCoupleStep === 'regarde';
+}
 
-// Dessine le sprite du couple (CLL) : un seul canevas pour les deux, avec un
-// fondu enchaîné vers l'image suivante pour une étreinte fluide.
-function fwDrawCll(frames, t) {
+// Dessine le sprite du couple : un seul canevas pour les deux, avec le fondu
+// enchaîné vers l'image suivante de la séquence.
+function fwDrawCoupleSprite(frames, centerOff, t) {
   const h = CHARACTER_HEIGHT * FW_CLL_SCALE * t.scale;
   const w = h * CHARACTER_ASPECT;
-  const x = t.dx + (FW_COUPLE_X - FW_CLL_CENTER_OFF) * t.scale - w / 2;
+  const x = t.dx + (FW_COUPLE_X - centerOff) * t.scale - w / 2;
   const y = t.dy + FW_GROUND_Y * t.scale - h;
-  const i = Math.min(fwCllFrame, frames.length - 1);
+  const i = Math.min(fwSeqFrame, frames.length - 1);
   ctx.drawImage(frames[i], x, y, w, h);
-  if (fwCllBlend > 0 && i + 1 < frames.length) {
+  if (fwSeqBlend > 0 && i + 1 < frames.length) {
     ctx.save();
-    ctx.globalAlpha = fwCllBlend * fwCllBlend * (3 - 2 * fwCllBlend);
+    ctx.globalAlpha = fwSeqBlend * fwSeqBlend * (3 - 2 * fwSeqBlend);
     ctx.drawImage(frames[i + 1], x, y, w, h);
     ctx.restore();
   }
@@ -323,8 +353,13 @@ function fwDrawCouple(assets) {
     // l'étreinte prend le relais dès qu'ils s'arrêtent).
     drawCharacter(fwLois, assets.loisCalin, assets.loisWalk, t, null, FW_GROUND_Y);
     drawCharacter(fwLauren, assets.laurenCalin, assets.laurenWalk, t, null, FW_GROUND_Y);
+  } else if (fwCoupleStep === 'retourne' || fwCoupleStep === 'regarde') {
+    // Le retournement part de l'étreinte : CLL4 fondu dans TLL1..4, pour ne
+    // pas couper net entre les deux séquences.
+    if (!fwTurnFrames) fwTurnFrames = [assets.cll[assets.cll.length - 1]].concat(assets.tll);
+    fwDrawCoupleSprite(fwTurnFrames, FW_TLL_CENTER_OFF, t);
   } else {
-    fwDrawCll(assets.cll, t);
+    fwDrawCoupleSprite(assets.cll, FW_CLL_CENTER_OFF, t);
   }
   fwDrawHearts(t);
   ctx.restore();
@@ -380,9 +415,11 @@ function fwSpawnRocket(opts) {
   });
 }
 
-// Tap pendant la charge : petite fusée + remplissage de la jauge.
+// Tap pendant la charge : petite fusée + remplissage de la jauge. Au tout
+// premier, le couple se retourne pour regarder le ciel (voir fwCoupleWatch).
 function fwTapCharge(px) {
   const S = fwScale();
+  fwCoupleWatch();
   const x = Math.max(30, Math.min(window.innerWidth - 30, px));
   fwSpawnRocket({ x, vy: -(250 + Math.random() * 70) * S, targetY: window.innerHeight * (0.3 + Math.random() * 0.28) });
   fwTapCount++;

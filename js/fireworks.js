@@ -51,7 +51,7 @@ const FW_MSG_AT = 6000;         // apparition du message « Bon anniversaire »
 const FW_MSG_DUR = 7500;        // durée d'affichage du message
 const FW_MSG_BURST_GAP = 120;   // ms entre deux fusées qui construisent le texte
 const FW_PHOTOS_START = FW_MSG_AT + FW_MSG_DUR; // photos après le message
-const FW_PHOTO_SPAWN = 4200;    // ms entre deux photos (plus espacées)
+const FW_PHOTO_SPAWN = 5200;    // ms entre deux photos (bien espacées)
 // Zones d'apparition des photos (centres en fractions d'écran), parcourues en
 // cycle pour bien répartir les photos dans l'espace.
 const FW_PHOTO_ZONES = [
@@ -593,7 +593,7 @@ function fwSpawnPhoto(idx) {
     swayAmp: 5 + Math.random() * 6,
     rot: (Math.random() * 2 - 1) * 0.08,
     born: performance.now(),
-    life: 9200 + Math.random() * 1800, // affichées plus longtemps
+    life: 11000 + Math.random() * 2000, // affichées bien plus longtemps
   });
 }
 

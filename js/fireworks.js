@@ -4,18 +4,15 @@
 //                     pendant que le COUPLE arrive (scène non jouable) : Loïs
 //                     par la gauche, Lauren par la droite, puis étreinte
 //                     (CLL1-4) ;
-//   2) 'noir'       : le câlin fini, l'écran passe AU NOIR (fondu lent) ;
-//   3) 'charge'     : SUR LE NOIR, on invite à TAPOTER (jauge). Chaque tap =
-//                     petite fusée (visible sur le noir) + son de clic (le clic
-//                     ne sonne QUE pendant cette phase) ;
-//   4) 'show'       : les feux se déclenchent, le noir se lève sur la NUIT et le
-//                     couple qui se retourne (TLL1-4) pour regarder le ciel. La
-//                     MUSIQUE du générique ET l'AMBIANCE des feux démarrent
-//                     ENSEMBLE, en boucle, en fond. Après quelques secondes :
-//                     message « Bon anniversaire » en feu d'artifice ; puis les
-//                     PHOTOS souvenir défilent (les 12, chacune une seule fois,
-//                     ordre aléatoire, lent) ;
-//   5) 'end'        : « Fin... » et long fondu au noir. Les feux CONTINUENT
+//   2) 'charge'     : on invite à TAPOTER (jauge). Chaque tap = petite fusée +
+//                     son de clic (le clic ne sonne QUE pendant cette phase) ;
+//   3) 'show'       : les feux se déclenchent et le couple se retourne (TLL1-4)
+//                     pour regarder le ciel. La MUSIQUE du générique ET
+//                     l'AMBIANCE des feux démarrent ENSEMBLE, en boucle, en fond.
+//                     Après quelques secondes : message « Bon anniversaire » en
+//                     feu d'artifice ; puis les PHOTOS souvenir défilent (les 12,
+//                     chacune une seule fois, ordre aléatoire, lent) ;
+//   4) 'end'        : « Fin... » et long fondu au noir. Les feux CONTINUENT
 //                     pendant tout le fondu, leur bruit baissant avec l'image.
 // Feux entièrement PROCÉDURAUX (petits carrés additifs).
 // ============================================================
@@ -36,18 +33,13 @@ const FW_THEMES = [
 ];
 const FW_SPARKLE = FW_COLORS.blanc;
 
-// Chronologie du fond (ms depuis le début de la scène). Fondus LENTS et longs :
-// le jour bascule tout doucement vers le coucher puis la nuit pendant que le
-// couple arrive.
-const FW_DAY_HOLD = 1500;
-const FW_FADE = 6000;
-const FW_SUNSET_HOLD = 2000;
+// Chronologie du fond (ms depuis le début de la scène). Fondus doux mais assez
+// rapides : la NUIT (image 3) est en place vers 7,8 s, c'est-à-dire juste après
+// l'arrivée et l'étreinte du couple.
+const FW_DAY_HOLD = 800;
+const FW_FADE = 3000;
+const FW_SUNSET_HOLD = 1000;
 const FW_NIGHT_AT = FW_DAY_HOLD + FW_FADE + FW_SUNSET_HOLD + FW_FADE;
-
-// Une fois le câlin fini, l'écran passe au noir : c'est LÀ qu'on invite à
-// tapoter. Le noir se lève ensuite quand le feu part.
-const FW_BLACK_FADE = 2400;     // ms de fondu au noir après l'étreinte
-const FW_REVEAL_FADE = 1600;    // ms pour redécouvrir la nuit au départ des feux
 
 const FW_TAP_GOAL = 12;         // nb de tapotements pour déclencher
 const FW_FIRE_DELAY = 1800;     // ms de musique seule (léger) avant les feux
@@ -92,8 +84,7 @@ function fwPlayClick() {
 }
 
 // --- État ---
-let fwPhase = 'arrivee'; // 'arrivee' -> 'noir' -> 'charge' -> 'show' -> 'end'
-let fwBlackStart = 0;    // début du fondu au noir qui suit l'étreinte
+let fwPhase = 'arrivee'; // 'arrivee' -> 'charge' -> 'show' -> 'end'
 let fwParticles = [];
 let fwRockets = [];
 let fwShowTimer = 0;
@@ -258,8 +249,8 @@ function fwUpdateCouple(dt, elapsed) {
     // Le feu est lancé : CLL4 -> TLL1..4, ils se retournent vers le ciel.
     if (fwStepSequence(now, 4)) fwCoupleStep = 'regarde';
   }
-  // 'enlaces' : ils restent dans les bras l'un de l'autre (l'écran passe au
-  // noir par-dessus). 'regarde' : de dos, main dans la main, ils ne bougent plus.
+  // 'enlaces' : ils restent dans les bras l'un de l'autre en attendant que le
+  // feu parte. 'regarde' : de dos, main dans la main, ils ne bougent plus.
 
   // Bruit de pas : mis à jour à CHAQUE image, dès que l'un des deux marche
   // (et fondu à zéro dès qu'ils s'arrêtent).
@@ -319,7 +310,6 @@ function fwDrawCouple(assets) {
 
 function fireworksReset() {
   fwPhase = 'arrivee';
-  fwBlackStart = 0;
   fwSkipFadeIn = false;
   fwCoupleReset();
   fwParticles = [];
@@ -613,12 +603,10 @@ function updateFireworks(dt, elapsed) {
   const grav = 92 * S;
   const now = performance.now();
 
-  // L'arrivée du couple n'attend rien de la joueuse. Une fois l'étreinte finie,
-  // l'écran passe au noir ('noir'), et c'est seulement une fois le noir complet
-  // qu'on l'invite à déclencher les feux ('charge').
+  // L'arrivée du couple n'attend rien de la joueuse : on ne lui propose de
+  // déclencher les feux qu'une fois la nuit tombée ET l'étreinte terminée.
   fwUpdateCouple(dt, elapsed);
-  if (fwPhase === 'arrivee' && fwCoupleDone()) { fwPhase = 'noir'; fwBlackStart = now; }
-  else if (fwPhase === 'noir' && now - fwBlackStart >= FW_BLACK_FADE) fwPhase = 'charge';
+  if (fwPhase === 'arrivee' && elapsed >= FW_NIGHT_AT && fwCoupleDone()) fwPhase = 'charge';
 
   const target = Math.min(1, fwTapCount / FW_TAP_GOAL);
   fwCharge += (target - fwCharge) * Math.min(1, dt * 8);
@@ -706,12 +694,10 @@ function updateFireworks(dt, elapsed) {
   }
 }
 
-// Fond en fondu jour -> coucher -> nuit. Une fois l'écran noir, le reste de la
-// scène se joue de NUIT (le basculement s'est fait derrière le voile noir).
-function fwDrawBackground(assets, elapsedRaw) {
+// Fond en fondu jour -> coucher -> nuit.
+function fwDrawBackground(assets, elapsed) {
   const imgs = assets && assets.place8;
   if (!imgs) { ctx.fillStyle = '#05050c'; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight); return; }
-  const elapsed = (fwPhase === 'arrivee' || fwPhase === 'noir') ? elapsedRaw : Math.max(elapsedRaw, FW_NIGHT_AT);
   const t1 = FW_DAY_HOLD, t2 = t1 + FW_FADE, t3 = t2 + FW_SUNSET_HOLD, t4 = t3 + FW_FADE;
   let from = 2, to = 2, blend = 1;
   if (elapsed < t1) { from = 0; to = 0; blend = 0; }
@@ -770,14 +756,6 @@ function fwDrawWaitForAudio(assets) {
   fwSkipFadeIn = true;   // le décor est déjà à l'écran : pas de fondu au noir
 }
 
-// Opacité du voile noir qui sépare l'étreinte du feu d'artifice (0 = rien).
-function fwBlackVeil(now) {
-  if (fwPhase === 'noir') return Math.min(1, (now - fwBlackStart) / FW_BLACK_FADE);
-  if (fwPhase === 'charge') return 1;
-  if (fwPhase === 'show') return Math.max(0, 1 - (now - fwShowStart) / FW_REVEAL_FADE);
-  return 0;
-}
-
 // --- Rendu ---
 function drawFireworksScene(assets, elapsed, dt) {
   fwAssets = assets;
@@ -790,12 +768,6 @@ function drawFireworksScene(assets, elapsed, dt) {
 
   // Le couple : devant le décor, mais sous les feux (qui l'éclairent).
   fwDrawCouple(assets);
-
-  // Voile noir : il tombe une fois l'étreinte finie, reste plein pendant qu'on
-  // invite à tapoter, puis se lève sur la nuit quand le feu part. Il est posé
-  // AVANT les feux : les petites fusées de la charge restent donc visibles.
-  const veil = fwBlackVeil(t);
-  if (veil > 0) fillBlack(veil);
 
   // Feux (additif).
   ctx.save();

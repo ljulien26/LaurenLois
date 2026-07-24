@@ -3,17 +3,20 @@
 //   1) 'arrivee'    : fondu du décor JOUR -> COUCHER -> NUIT (Places/8/1-3.png)
 //                     pendant que le COUPLE arrive (scène non jouable) : Loïs
 //                     par la gauche, Lauren par la droite, puis étreinte
-//                     (CLL1-4) et petits cœurs ;
-//   2) 'charge'     : on invite à TAPOTER (jauge). Chaque tap = petite fusée +
-//                     son de clic (le clic ne sonne QUE pendant cette phase).
-//                     Au PREMIER tap, le couple se retourne (TLL1-4) et restera
-//                     de dos, main dans la main, à regarder le ciel ;
-//   3) 'show'       : les feux se déclenchent. La MUSIQUE du générique ET
-//                     l'AMBIANCE des feux démarrent ENSEMBLE, en boucle, en fond.
-//                     Après quelques secondes : message « Bon anniversaire »
-//                     en feu d'artifice ; puis les PHOTOS souvenir défilent
-//                     (les 12, chacune une seule fois, ordre aléatoire, lent) ;
-//   4) 'end'        : écran qui se termine sur « Fin ».
+//                     (CLL1-4) ;
+//   2) 'noir'       : le câlin fini, l'écran passe AU NOIR (fondu lent) ;
+//   3) 'charge'     : SUR LE NOIR, on invite à TAPOTER (jauge). Chaque tap =
+//                     petite fusée (visible sur le noir) + son de clic (le clic
+//                     ne sonne QUE pendant cette phase) ;
+//   4) 'show'       : les feux se déclenchent, le noir se lève sur la NUIT et le
+//                     couple qui se retourne (TLL1-4) pour regarder le ciel. La
+//                     MUSIQUE du générique ET l'AMBIANCE des feux démarrent
+//                     ENSEMBLE, en boucle, en fond. Après quelques secondes :
+//                     message « Bon anniversaire » en feu d'artifice ; puis les
+//                     PHOTOS souvenir défilent (les 12, chacune une seule fois,
+//                     ordre aléatoire, lent) ;
+//   5) 'end'        : « Fin... » et long fondu au noir. Les feux CONTINUENT
+//                     pendant tout le fondu, leur bruit baissant avec l'image.
 // Feux entièrement PROCÉDURAUX (petits carrés additifs).
 // ============================================================
 
@@ -40,6 +43,11 @@ const FW_DAY_HOLD = 1500;
 const FW_FADE = 6000;
 const FW_SUNSET_HOLD = 2000;
 const FW_NIGHT_AT = FW_DAY_HOLD + FW_FADE + FW_SUNSET_HOLD + FW_FADE;
+
+// Une fois le câlin fini, l'écran passe au noir : c'est LÀ qu'on invite à
+// tapoter. Le noir se lève ensuite quand le feu part.
+const FW_BLACK_FADE = 2400;     // ms de fondu au noir après l'étreinte
+const FW_REVEAL_FADE = 1600;    // ms pour redécouvrir la nuit au départ des feux
 
 const FW_TAP_GOAL = 12;         // nb de tapotements pour déclencher
 const FW_FIRE_DELAY = 1800;     // ms de musique seule (léger) avant les feux
@@ -84,7 +92,8 @@ function fwPlayClick() {
 }
 
 // --- État ---
-let fwPhase = 'arrivee'; // 'arrivee' -> 'charge' -> 'show' -> 'end'
+let fwPhase = 'arrivee'; // 'arrivee' -> 'noir' -> 'charge' -> 'show' -> 'end'
+let fwBlackStart = 0;    // début du fondu au noir qui suit l'étreinte
 let fwParticles = [];
 let fwRockets = [];
 let fwShowTimer = 0;
@@ -167,7 +176,6 @@ const FW_TURN_BOX = [FW_CLL_BOX[FW_CLL_BOX.length - 1]].concat(FW_TLL_BOX);
 const FW_COUPLE_START = 700;  // ms avant que les deux se mettent en marche
 const FW_SEQ_FRAME = 420;     // ms par image des séquences du couple (CLL, TLL)
 const FW_SEQ_BLEND = 260;     // ms de fondu enchaîné entre deux images (fluidité)
-const FW_HEART_MIN_GAP = 0.45, FW_HEART_MAX_GAP = 0.95; // s entre deux cœurs
 
 const FW_LOIS_START_X = -90;   // hors écran à gauche
 const FW_LAUREN_START_X = 1050; // hors écran à droite
@@ -179,34 +187,19 @@ const FW_LAUREN_END_X = FW_COUPLE_X + FW_COUPLE_GAP / 2 - FW_LAUREN_BODY_OFF;
 const fwLois = createCharacter(FW_LOIS_START_X, 'right', LOIS_VISIBLE_WIDTH_RATIO, 4, FW_LOIS_SCALE, 2);
 const fwLauren = createCharacter(FW_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, FW_LAUREN_SCALE, 2);
 
-// Étapes : 'attente' -> 'marche' -> 'etreinte' (CLL) -> 'coeurs' -> (elle clique)
-// 'retourne' (TLL) -> 'regarde' (TLL4, ils ne bougent plus).
+// Étapes : 'attente' -> 'marche' -> 'etreinte' (CLL) -> 'enlaces' -> (le feu est
+// lancé) 'retourne' (TLL) -> 'regarde' (TLL4, ils ne bougent plus).
 let fwCoupleStep = 'attente';
 let fwCoupleStepStart = 0;
 let fwSeqFrame = 0;
 let fwSeqBlend = 0; // 0..1 : fondu vers l'image suivante de la séquence
 let fwTurnFrames = null; // CLL4 + TLL1..4 (mémorisé : pas d'allocation par image)
-let fwHearts = [];
-let fwHeartTimer = 0;
-
-// Petit cœur pixel (7x6), dessiné case par case.
-const FW_HEART_ROWS = [
-  '0110110',
-  '1111111',
-  '1111111',
-  '0111110',
-  '0011100',
-  '0001000',
-];
-const FW_HEART_COLORS = [[255, 120, 170], [255, 80, 120], [255, 175, 200], [255, 214, 106]];
 
 function fwCoupleReset() {
   fwCoupleStep = 'attente';
   fwCoupleStepStart = 0;
   fwSeqFrame = 0;
   fwSeqBlend = 0;
-  fwHearts = [];
-  fwHeartTimer = 0;
   fwLois.x = FW_LOIS_START_X;
   fwLois.facing = 'right';
   fwLois.walking = false;
@@ -219,21 +212,6 @@ function fwCoupleReset() {
 
 function fwCoupleT() {
   return getCoverTransform(960, 540, window.innerWidth, window.innerHeight);
-}
-
-// Un cœur part de la hauteur des épaules, d'un côté ou de l'autre du couple.
-function fwSpawnHeart() {
-  fwHearts.push({
-    x: FW_COUPLE_X + (Math.random() * 2 - 1) * 34,
-    y: FW_GROUND_Y - 108 - Math.random() * 20,
-    vy: -(16 + Math.random() * 12),
-    sway: 5 + Math.random() * 7,
-    phase: Math.random() * 6.28,
-    cell: 1.5 + Math.random() * 1.1,
-    col: FW_HEART_COLORS[Math.floor(Math.random() * FW_HEART_COLORS.length)],
-    born: performance.now(),
-    life: 2600 + Math.random() * 1400,
-  });
 }
 
 // Avance la séquence d'images en cours (une image tenue, puis fondue dans la
@@ -249,10 +227,10 @@ function fwStepSequence(now, lastIndex) {
   return i >= lastIndex;
 }
 
-// Elle vient de cliquer pour lancer les feux : le couple se détache et se
-// retourne (TLL) pour regarder le ciel jusqu'à la fin.
+// Le feu vient d'être déclenché : le couple se détache et se retourne (TLL)
+// pour regarder le ciel jusqu'à la fin.
 function fwCoupleWatch() {
-  if (fwCoupleStep !== 'coeurs') return;
+  if (fwCoupleStep !== 'enlaces') return;
   fwCoupleStep = 'retourne';
   fwCoupleStepStart = performance.now();
   fwSeqFrame = 0;
@@ -275,34 +253,22 @@ function fwUpdateCouple(dt, elapsed) {
     if (!fwLois.walking && !fwLauren.walking) { fwCoupleStep = 'etreinte'; fwCoupleStepStart = now; }
   } else if (fwCoupleStep === 'etreinte') {
     // CLL1 -> CLL4 : les bras se referment en continu (fondu enchaîné).
-    if (fwStepSequence(now, 3)) { fwCoupleStep = 'coeurs'; fwHeartTimer = 0.2; }
-  } else if (fwCoupleStep === 'coeurs') {
-    // Enlacés, des cœurs s'envolent, en attendant qu'elle lance les feux.
-    fwHeartTimer -= dt;
-    if (fwHeartTimer <= 0) {
-      fwSpawnHeart();
-      fwHeartTimer = FW_HEART_MIN_GAP + Math.random() * (FW_HEART_MAX_GAP - FW_HEART_MIN_GAP);
-    }
+    if (fwStepSequence(now, 3)) fwCoupleStep = 'enlaces';
   } else if (fwCoupleStep === 'retourne') {
-    // Elle a cliqué : CLL4 -> TLL1..4, ils se retournent vers le ciel.
+    // Le feu est lancé : CLL4 -> TLL1..4, ils se retournent vers le ciel.
     if (fwStepSequence(now, 4)) fwCoupleStep = 'regarde';
   }
-  // 'regarde' : main dans la main, de dos, ils ne bougent plus.
+  // 'enlaces' : ils restent dans les bras l'un de l'autre (l'écran passe au
+  // noir par-dessus). 'regarde' : de dos, main dans la main, ils ne bougent plus.
 
   // Bruit de pas : mis à jour à CHAQUE image, dès que l'un des deux marche
   // (et fondu à zéro dès qu'ils s'arrêtent).
   updateWalkSound(dt, fwLois.walking || fwLauren.walking);
-
-  for (let i = fwHearts.length - 1; i >= 0; i--) {
-    const h = fwHearts[i];
-    h.y += h.vy * dt;
-    if (now - h.born > h.life) fwHearts.splice(i, 1);
-  }
 }
 
 // L'étreinte est-elle terminée ? (rien d'autre ne démarre avant.)
 function fwCoupleDone() {
-  return fwCoupleStep === 'coeurs' || fwCoupleStep === 'retourne' || fwCoupleStep === 'regarde';
+  return fwCoupleStep === 'enlaces' || fwCoupleStep === 'retourne' || fwCoupleStep === 'regarde';
 }
 
 // Dessine UNE image du couple : redimensionnée pour que le couple fasse
@@ -330,31 +296,6 @@ function fwDrawCoupleSprite(frames, boxes, t) {
   }
 }
 
-function fwDrawHearts(t) {
-  const now = performance.now();
-  for (const hp of fwHearts) {
-    const age = now - hp.born;
-    let a = 1;
-    if (age < 300) a = age / 300;
-    else if (age > hp.life - 900) a = Math.max(0, (hp.life - age) / 900);
-    if (a <= 0.02) continue;
-    const cell = Math.max(1, Math.round(hp.cell * t.scale));
-    const sx = t.dx + (hp.x + Math.sin(now / 700 + hp.phase) * hp.sway) * t.scale;
-    const sy = t.dy + hp.y * t.scale;
-    ctx.globalAlpha = a;
-    ctx.fillStyle = `rgb(${hp.col[0]},${hp.col[1]},${hp.col[2]})`;
-    for (let r = 0; r < FW_HEART_ROWS.length; r++) {
-      const row = FW_HEART_ROWS[r];
-      for (let c = 0; c < row.length; c++) {
-        if (row[c] === '1') {
-          ctx.fillRect(Math.round(sx + (c - row.length / 2) * cell), Math.round(sy + (r - FW_HEART_ROWS.length / 2) * cell), cell, cell);
-        }
-      }
-    }
-  }
-  ctx.globalAlpha = 1;
-}
-
 function fwDrawCouple(assets) {
   if (fwCoupleStep === 'attente') return;
   const t = fwCoupleT();
@@ -373,12 +314,12 @@ function fwDrawCouple(assets) {
   } else {
     fwDrawCoupleSprite(assets.cll, FW_CLL_BOX, t);
   }
-  fwDrawHearts(t);
   ctx.restore();
 }
 
 function fireworksReset() {
   fwPhase = 'arrivee';
+  fwBlackStart = 0;
   fwSkipFadeIn = false;
   fwCoupleReset();
   fwParticles = [];
@@ -485,6 +426,17 @@ function fwExplode(x, y, color, type) {
     for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2; const speed = (30 + Math.sqrt(Math.random()) * 150) * S; add(Math.cos(a) * speed, Math.sin(a) * speed, 0.8 + Math.random() * 0.9, Math.random() < 0.22 ? FW_SPARKLE : color, 2.8, 1); }
   }
   fwParticles.push({ x, y, vx: 0, vy: 0, life: 0.18, maxLife: 0.18, col: FW_SPARKLE, size: 7 * S, gmul: 0, flick: 0, flash: true });
+}
+
+// Salve automatique (une ou plusieurs fusées), au rythme de fwShowTimer.
+function fwAutoVolley(dt) {
+  fwShowTimer -= dt;
+  if (fwShowTimer <= 0) {
+    const volley = Math.random() < 0.45 ? 2 + Math.floor(Math.random() * 4) : 1;
+    for (let i = 0; i < volley; i++) fwAutoLaunch();
+    fwShowTimer = 0.22 + Math.random() * 0.5;
+    if (Math.random() < 0.1) fwShowTimer += 0.5;
+  }
 }
 
 function fwAutoLaunch() {
@@ -661,10 +613,12 @@ function updateFireworks(dt, elapsed) {
   const grav = 92 * S;
   const now = performance.now();
 
-  // L'arrivée du couple n'attend rien de la joueuse : on ne lui propose de
-  // déclencher les feux qu'une fois la nuit tombée ET l'étreinte terminée.
+  // L'arrivée du couple n'attend rien de la joueuse. Une fois l'étreinte finie,
+  // l'écran passe au noir ('noir'), et c'est seulement une fois le noir complet
+  // qu'on l'invite à déclencher les feux ('charge').
   fwUpdateCouple(dt, elapsed);
-  if (fwPhase === 'arrivee' && elapsed >= FW_NIGHT_AT && fwCoupleDone()) fwPhase = 'charge';
+  if (fwPhase === 'arrivee' && fwCoupleDone()) { fwPhase = 'noir'; fwBlackStart = now; }
+  else if (fwPhase === 'noir' && now - fwBlackStart >= FW_BLACK_FADE) fwPhase = 'charge';
 
   const target = Math.min(1, fwTapCount / FW_TAP_GOAL);
   fwCharge += (target - fwCharge) * Math.min(1, dt * 8);
@@ -677,14 +631,7 @@ function updateFireworks(dt, elapsed) {
     if (!fwFireStarted) {
       if (now - fwShowStart >= FW_FIRE_DELAY) fwIgniteFireworks();
     } else {
-      // Tirs automatiques.
-      fwShowTimer -= dt;
-      if (fwShowTimer <= 0) {
-        const volley = Math.random() < 0.45 ? 2 + Math.floor(Math.random() * 4) : 1;
-        for (let i = 0; i < volley; i++) fwAutoLaunch();
-        fwShowTimer = 0.22 + Math.random() * 0.5;
-        if (Math.random() < 0.1) fwShowTimer += 0.5;
-      }
+      fwAutoVolley(dt);
 
       const fireElapsed = now - fwFireStart;
 
@@ -724,6 +671,10 @@ function updateFireworks(dt, elapsed) {
         }
       }
     }
+  } else if (fwPhase === 'end' && fwFireStarted) {
+    // Le spectacle ne s'arrête pas net : les feux continuent de partir pendant
+    // tout le fondu final (leur bruit, lui, baisse avec l'image).
+    fwAutoVolley(dt);
   }
 
   // Fusées.
@@ -755,10 +706,12 @@ function updateFireworks(dt, elapsed) {
   }
 }
 
-// Fond en fondu jour -> coucher -> nuit.
-function fwDrawBackground(assets, elapsed) {
+// Fond en fondu jour -> coucher -> nuit. Une fois l'écran noir, le reste de la
+// scène se joue de NUIT (le basculement s'est fait derrière le voile noir).
+function fwDrawBackground(assets, elapsedRaw) {
   const imgs = assets && assets.place8;
   if (!imgs) { ctx.fillStyle = '#05050c'; ctx.fillRect(0, 0, window.innerWidth, window.innerHeight); return; }
+  const elapsed = (fwPhase === 'arrivee' || fwPhase === 'noir') ? elapsedRaw : Math.max(elapsedRaw, FW_NIGHT_AT);
   const t1 = FW_DAY_HOLD, t2 = t1 + FW_FADE, t3 = t2 + FW_SUNSET_HOLD, t4 = t3 + FW_FADE;
   let from = 2, to = 2, blend = 1;
   if (elapsed < t1) { from = 0; to = 0; blend = 0; }
@@ -817,6 +770,14 @@ function fwDrawWaitForAudio(assets) {
   fwSkipFadeIn = true;   // le décor est déjà à l'écran : pas de fondu au noir
 }
 
+// Opacité du voile noir qui sépare l'étreinte du feu d'artifice (0 = rien).
+function fwBlackVeil(now) {
+  if (fwPhase === 'noir') return Math.min(1, (now - fwBlackStart) / FW_BLACK_FADE);
+  if (fwPhase === 'charge') return 1;
+  if (fwPhase === 'show') return Math.max(0, 1 - (now - fwShowStart) / FW_REVEAL_FADE);
+  return 0;
+}
+
 // --- Rendu ---
 function drawFireworksScene(assets, elapsed, dt) {
   fwAssets = assets;
@@ -829,6 +790,12 @@ function drawFireworksScene(assets, elapsed, dt) {
 
   // Le couple : devant le décor, mais sous les feux (qui l'éclairent).
   fwDrawCouple(assets);
+
+  // Voile noir : il tombe une fois l'étreinte finie, reste plein pendant qu'on
+  // invite à tapoter, puis se lève sur la nuit quand le feu part. Il est posé
+  // AVANT les feux : les petites fusées de la charge restent donc visibles.
+  const veil = fwBlackVeil(t);
+  if (veil > 0) fillBlack(veil);
 
   // Feux (additif).
   ctx.save();
@@ -896,8 +863,9 @@ function drawFireworksScene(assets, elapsed, dt) {
     const k = Math.max(0, Math.min(1, (e - FW_FIN_HOLD) / FW_END_FADE));
     fillBlack(k);
 
-    // L'ambiance des feux s'éteint pendant le début du fondu.
-    fwFireSound.volume = FW_FIRE_VOLUME * Math.max(0, Math.min(1, 1 - (e - FW_FIN_HOLD) / 3000));
+    // Les feux CONTINUENT de partir pendant tout le fondu : leur bruit baisse
+    // exactement au même rythme que l'image, et s'éteint avec elle.
+    fwFireSound.volume = FW_FIRE_VOLUME * (1 - k);
     if (fwFireSound.volume <= 0.001 && !fwFireSound.paused) { try { fwFireSound.pause(); } catch (err) {} }
 
     // La musique reste à fond, puis s'éteint en douceur vers la toute fin.

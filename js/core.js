@@ -229,12 +229,17 @@ function isInsideRect(pos, rect) {
 // seraient refusés faute de geste au moment de leur lecture.
 
 const audioToUnlock = [];
+// Passe à true au premier geste utilisateur : à partir de là, le navigateur
+// laisse jouer les sons. Une scène qui DOIT être sonore (ex. l'arrivée du
+// couple et ses bruits de pas) peut attendre ce feu vert avant de démarrer.
+let audioUnlocked = false;
 
 function registerAudioForUnlock(audio) {
   audioToUnlock.push(audio);
 }
 
 function unlockAudio() {
+  audioUnlocked = true;
   audioToUnlock.forEach((audio) => {
     const wasMuted = audio.muted;
     audio.muted = true;

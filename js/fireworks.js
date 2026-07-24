@@ -31,10 +31,12 @@ const FW_THEMES = [
 ];
 const FW_SPARKLE = FW_COLORS.blanc;
 
-// Chronologie du fond (ms depuis le début de la scène).
-const FW_DAY_HOLD = 1200;
-const FW_FADE = 3500;
-const FW_SUNSET_HOLD = 1500;
+// Chronologie du fond (ms depuis le début de la scène). Fondus LENTS et longs :
+// le jour bascule tout doucement vers le coucher puis la nuit pendant que le
+// couple arrive.
+const FW_DAY_HOLD = 1500;
+const FW_FADE = 6000;
+const FW_SUNSET_HOLD = 2000;
 const FW_NIGHT_AT = FW_DAY_HOLD + FW_FADE + FW_SUNSET_HOLD + FW_FADE;
 
 const FW_TAP_GOAL = 12;         // nb de tapotements pour déclencher
@@ -151,7 +153,11 @@ const FW_LAUREN_BODY_OFF = 3.5 * fwSpritePx(FW_LAUREN_SCALE);
 const FW_CLL_CENTER_OFF = 4 * fwSpritePx(FW_CLL_SCALE);
 
 const FW_COUPLE_START = 700;  // ms avant que les deux se mettent en marche
-const FW_CLL_FRAME = 260;     // ms par image de l'étreinte (CLL1 -> CLL4)
+// ...mais on attend le feu vert audio (premier geste utilisateur) pour que les
+// PAS s'entendent bien dès le premier, sans jamais bloquer la scène.
+const FW_COUPLE_MAX_WAIT = 4000;
+const FW_CLL_FRAME = 420;     // ms par image de l'étreinte (CLL1 -> CLL4)
+const FW_CLL_BLEND = 260;     // ms de fondu enchaîné entre deux images (fluidité)
 const FW_HEART_MIN_GAP = 0.45, FW_HEART_MAX_GAP = 0.95; // s entre deux cœurs
 
 const FW_LOIS_START_X = -90;   // hors écran à gauche
@@ -168,6 +174,7 @@ const fwLauren = createCharacter(FW_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH
 let fwCoupleStep = 'attente';
 let fwCoupleStepStart = 0;
 let fwCllFrame = 0;
+let fwCllBlend = 0; // 0..1 : fondu vers l'image suivante de l'étreinte
 let fwHearts = [];
 let fwHeartTimer = 0;
 
@@ -186,6 +193,7 @@ function fwCoupleReset() {
   fwCoupleStep = 'attente';
   fwCoupleStepStart = 0;
   fwCllFrame = 0;
+  fwCllBlend = 0;
   fwHearts = [];
   fwHeartTimer = 0;
   fwLois.x = FW_LOIS_START_X;
@@ -221,7 +229,7 @@ function fwUpdateCouple(dt, elapsed) {
   const now = performance.now();
 
   if (fwCoupleStep === 'attente') {
-    if (elapsed >= FW_COUPLE_START) {
+    if (elapsed >= FW_COUPLE_START && (audioUnlocked || elapsed >= FW_COUPLE_MAX_WAIT)) {
       fwCoupleStep = 'marche';
       characterWalkTo(fwLois, FW_LOIS_END_X);
       characterWalkTo(fwLauren, FW_LAUREN_END_X);
@@ -232,8 +240,14 @@ function fwUpdateCouple(dt, elapsed) {
     // Arrivés l'un contre l'autre : le sprite du couple enchaîne aussitôt.
     if (!fwLois.walking && !fwLauren.walking) { fwCoupleStep = 'etreinte'; fwCoupleStepStart = now; }
   } else if (fwCoupleStep === 'etreinte') {
-    fwCllFrame = Math.min(3, Math.floor((now - fwCoupleStepStart) / FW_CLL_FRAME));
-    if (fwCllFrame >= 3) { fwCoupleStep = 'coeurs'; fwHeartTimer = 0.2; }
+    // Chaque image est tenue, puis fondue dans la suivante : les bras se
+    // referment en continu au lieu de sauter d'une pose à l'autre.
+    const e = now - fwCoupleStepStart;
+    const i = Math.floor(e / FW_CLL_FRAME);
+    fwCllFrame = Math.min(3, i);
+    const inFrame = e - i * FW_CLL_FRAME;
+    fwCllBlend = i >= 3 ? 0 : Math.max(0, Math.min(1, (inFrame - (FW_CLL_FRAME - FW_CLL_BLEND)) / FW_CLL_BLEND));
+    if (i >= 3) { fwCoupleStep = 'coeurs'; fwHeartTimer = 0.2; }
   } else {
     // Enlacés pour de bon : les cœurs continuent tout le reste de la scène.
     fwHeartTimer -= dt;
@@ -257,13 +271,21 @@ function fwUpdateCouple(dt, elapsed) {
 // L'étreinte est-elle terminée ? (rien d'autre ne démarre avant.)
 function fwCoupleDone() { return fwCoupleStep === 'coeurs'; }
 
-// Dessine le sprite du couple (CLL) : un seul canevas pour les deux.
-function fwDrawCll(img, t) {
+// Dessine le sprite du couple (CLL) : un seul canevas pour les deux, avec un
+// fondu enchaîné vers l'image suivante pour une étreinte fluide.
+function fwDrawCll(frames, t) {
   const h = CHARACTER_HEIGHT * FW_CLL_SCALE * t.scale;
   const w = h * CHARACTER_ASPECT;
   const x = t.dx + (FW_COUPLE_X - FW_CLL_CENTER_OFF) * t.scale - w / 2;
   const y = t.dy + FW_GROUND_Y * t.scale - h;
-  ctx.drawImage(img, x, y, w, h);
+  const i = Math.min(fwCllFrame, frames.length - 1);
+  ctx.drawImage(frames[i], x, y, w, h);
+  if (fwCllBlend > 0 && i + 1 < frames.length) {
+    ctx.save();
+    ctx.globalAlpha = fwCllBlend * fwCllBlend * (3 - 2 * fwCllBlend);
+    ctx.drawImage(frames[i + 1], x, y, w, h);
+    ctx.restore();
+  }
 }
 
 function fwDrawHearts(t) {
@@ -302,7 +324,7 @@ function fwDrawCouple(assets) {
     drawCharacter(fwLois, assets.loisCalin, assets.loisWalk, t, null, FW_GROUND_Y);
     drawCharacter(fwLauren, assets.laurenCalin, assets.laurenWalk, t, null, FW_GROUND_Y);
   } else {
-    fwDrawCll(assets.cll[Math.min(fwCllFrame, assets.cll.length - 1)], t);
+    fwDrawCll(assets.cll, t);
   }
   fwDrawHearts(t);
   ctx.restore();
@@ -693,7 +715,12 @@ function fwDrawBackground(assets, elapsed) {
   else if (elapsed < t3) { from = 1; to = 1; blend = 0; }
   else if (elapsed < t4) { from = 1; to = 2; blend = (elapsed - t3) / FW_FADE; }
   drawBackgroundCover(imgs[from]);
-  if (blend > 0 && to !== from) { ctx.save(); ctx.globalAlpha = blend; drawBackgroundCover(imgs[to]); ctx.restore(); }
+  if (blend > 0 && to !== from) {
+    // Fondu adouci aux deux bouts (smoothstep) : le basculement se sent à
+    // peine passer, il n'y a ni départ ni arrivée brusques.
+    const k = blend * blend * (3 - 2 * blend);
+    ctx.save(); ctx.globalAlpha = k; drawBackgroundCover(imgs[to]); ctx.restore();
+  }
 }
 
 // Une photo souvenir (cadre polaroïd, léger balancement, fondu entrée/sortie).

@@ -132,7 +132,12 @@ Promise.all([
     Promise.all(photoPaths).then((finalPhotos) => {
       assets.finalPhotos = finalPhotos;
 
-      // Départ normal du jeu (voir `let scene = 'premenu'` dans core.js).
+      // --- DEBUG (à retirer) : on démarre directement sur le décor 7 pour
+      // travailler l'arrivée du puzzle. Départ normal : `scene = 'premenu'`
+      // dans core.js.
+      place7Reset();
+      scene = 'place7';
+
       requestAnimationFrame((ts) => loop(ts, assets));
     });
   })

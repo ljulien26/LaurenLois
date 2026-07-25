@@ -44,6 +44,10 @@ Promise.all([
   loadImage('Assets/Jeu/Quiz/Boutons/Bonne réponse.png'),
   loadImage('Assets/Jeu/Quiz/Boutons/Mauvaise réponse.png'),
   loadImage('Assets/Jeu/Ticket/1.png'), // ticket qui tombe (Saint-Sernin)
+  // Affiches des 3 séances du cinéma (gauche, centre, droite), vues en grand.
+  loadImage('Assets/Jeu/AffichesCinema/HeureuxGagnants.png'),
+  loadImage('Assets/Jeu/AffichesCinema/F1.png'),
+  loadImage('Assets/Jeu/AffichesCinema/Materialist.png'),
   // Mini-jeu de la pluie de chats : Lauren avec panier + chatons.
   loadImage('Assets/Persos/Lauren/Côté/WalkPanier/26.png'),
   loadImage('Assets/Persos/Lauren/Côté/WalkPanier/27.png'),
@@ -85,6 +89,7 @@ Promise.all([
     tvStaticLight, tvStaticDense, tvFlashWeak, tvFlashStrong, tvCalm,
     placeFond, place2Fond, place3Fond, place4Fond, place5Fond, place6Fond, cadenasClosed, cadenasOpen1,
     quizPanel, quizGood, quizBad, ticketImg,
+    afficheHeureux, afficheF1, afficheMaterialist,
     basket26, basket27, basket28, basket29,
     cat1, cat2, cat3, panierImg,
     place8Day, place8Sunset, place8Night,
@@ -100,6 +105,8 @@ Promise.all([
       menuFond, menuTitre, menuBouton, preMenuFond, placeFond, place2Fond,
       place3Fond, place4Fond, place5Fond, place6Fond,
       ticketImg,
+      // Affiches du cinéma, dans l'ordre des portes : gauche, centre, droite.
+      affiches: [afficheHeureux, afficheF1, afficheMaterialist],
       laurenBasket: [basket26, basket27, basket28, basket29],
       cats: [cat1, cat2, cat3],
       panier: panierImg,

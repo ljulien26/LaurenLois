@@ -57,6 +57,7 @@ Promise.all([
   loadImage('Assets/Jeu/Chat/Chat 2.png'),
   loadImage('Assets/Jeu/Chat/Chat 3.png'),
   loadImage('Assets/Jeu/Panier/Panier.png'), // panier au sol (objet cliquable)
+  loadImage('Assets/Jeu/Popcorn/1.png'),     // boîte de popcorn au sol (décor 5)
   loadImage('Assets/Jeu/Places/8/1.png'), // décor final : jour
   loadImage('Assets/Jeu/Places/8/2.png'), // décor final : coucher de soleil
   loadImage('Assets/Jeu/Places/8/3.png'), // décor final : nuit
@@ -91,7 +92,7 @@ Promise.all([
     quizPanel, quizGood, quizBad, ticketImg,
     afficheHeureux, afficheF1, afficheMaterialist,
     basket26, basket27, basket28, basket29,
-    cat1, cat2, cat3, panierImg,
+    cat1, cat2, cat3, panierImg, popcornImg,
     place8Day, place8Sunset, place8Night,
     place7Fond, puzzleImg,
     laurenCalin, loisCalin, cll1, cll2, cll3, cll4, tll1, tll2, tll3, tll4,
@@ -110,6 +111,7 @@ Promise.all([
       laurenBasket: [basket26, basket27, basket28, basket29],
       cats: [cat1, cat2, cat3],
       panier: panierImg,
+      popcorn: popcornImg,
       place8: [place8Day, place8Sunset, place8Night], // jour -> coucher -> nuit
       place7Fond, puzzle: puzzleImg,
       cadenasFrames: [cadenasClosed, cadenasOpen1],

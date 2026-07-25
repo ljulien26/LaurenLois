@@ -19,16 +19,26 @@ const PLACE5_LAUREN_START_X = -70;
 const PLACE5_LAUREN_READY_X = 150;
 const PLACE5_LAUREN_MIN_X = 60;
 const PLACE5_LAUREN_MAX_X = 905;
-const PLACE5_TRIGGER_X = 460;
+
+// Boîte de popcorn posée au sol : c'est en allant la ramasser que la question
+// arrive (au lieu de tomber toute seule). Sa place dépend de la séance choisie
+// au décor 4, pour que le choix du film se voie aussi dans la salle.
+const PLACE5_POPCORN_X = [300, 480, 660]; // Heureux Gagnants / F1 / Materialist
+const PLACE5_POPCORN_H = 54;   // hauteur visible de la boîte (unités décor)
+const PLACE5_POPCORN_REACH = 110;
+// Emprise du dessin dans le PNG 960x540 (relevée sur l'image).
+const PLACE5_POPCORN_BOX = { cx: 480, bottom: 528, w: 421, h: 521 };
 
 const place5Lauren = createCharacter(
   PLACE5_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, PLACE5_LAUREN_SCALE, 2
 );
 
-// Phases : 'enter' -> 'play' -> 'question' -> 'win' -> 'exit'.
+// Phases : 'enter' -> 'play' (aller chercher le popcorn) -> 'question' -> 'win'
+// -> 'exit'.
 let place5Phase = 'enter';
 let place5Entered = false;
 let place5Assets = null;
+let place5PopcornTaken = false; // le popcorn a été ramassé : plus de halo
 let place5Input = '';
 let place5QuestionStart = null;
 let place5WrongUntil = 0;
@@ -45,6 +55,8 @@ function place5Reset() {
   place5Input = '';
   place5QuestionStart = null;
   place5WrongUntil = 0;
+  place5PopcornTaken = false;
+  place5HintNotified = false;
   place5Lauren.x = PLACE5_LAUREN_START_X;
   place5Lauren.facing = 'right';
   place5Lauren.walking = false;
@@ -122,6 +134,80 @@ function drawPlace5Ambience(containT) {
   ctx.restore();
 }
 
+// ---------- Boîte de popcorn (au sol) ----------
+// Position au sol, selon la séance choisie au décor 4 (centre par défaut).
+function place5PopcornX() {
+  const i = (typeof place4Choice === 'number' && place4Choice >= 0) ? place4Choice : 1;
+  return PLACE5_POPCORN_X[i] || PLACE5_POPCORN_X[1];
+}
+
+// Rectangle écran occupé par la boîte (le dessin, pas tout le canevas).
+function place5PopcornRect(containT) {
+  // px du PNG -> pixels écran, pour que la boîte fasse PLACE5_POPCORN_H de haut.
+  const scale = (PLACE5_POPCORN_H / PLACE5_POPCORN_BOX.h) * containT.scale;
+  const w = PLACE5_POPCORN_BOX.w * scale;
+  const h = PLACE5_POPCORN_BOX.h * scale;
+  const cx = containT.dx + place5PopcornX() * containT.scale;
+  const bottom = containT.dy + PLACE5_GROUND_Y * containT.scale;
+  return { x: cx - w / 2, y: bottom - h, w, h };
+}
+
+function drawPlace5Popcorn(containT) {
+  const img = place5Assets && place5Assets.popcorn;
+  if (!img) return;
+  const r = place5PopcornRect(containT);
+  // Halo doré tant qu'elle ne l'a pas ramassée (même langage que les portes).
+  if (!place5PopcornTaken) {
+    const cx = r.x + r.w / 2, cy = r.y + r.h * 0.55;
+    const rad = r.w * 1.15;
+    const pulse = 0.2 + Math.sin(performance.now() / 360) * 0.12;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = Math.max(0, pulse);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    g.addColorStop(0, 'rgba(255, 226, 150, 0.85)');
+    g.addColorStop(1, 'rgba(255, 226, 150, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+    ctx.restore();
+  }
+  // Le PNG fait 960x540 avec le dessin centré : on le pose à la même échelle.
+  const scale = r.h / PLACE5_POPCORN_BOX.h;
+  const dw = img.width * scale, dh = img.height * scale;
+  const dx = r.x + r.w / 2 - (PLACE5_POPCORN_BOX.cx * scale);
+  const dy = r.y + r.h - (PLACE5_POPCORN_BOX.bottom * scale);
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+function place5PopcornInReach() {
+  return Math.abs(place5Lauren.x - place5PopcornX()) <= PLACE5_POPCORN_REACH;
+}
+
+// Filet de sécurité : si au bout d'un moment elle n'a pas ramassé le popcorn,
+// on le dit explicitement (+ son de notif), comme le « Va tout à droite » du
+// décor 2.
+const PLACE5_HINT_DELAY = 25000;
+let place5HintNotified = false;
+
+function drawPlace5PopcornHint() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const text = 'Ramasse le popcorn';
+  ctx.save();
+  ctx.font = `${Math.round(h * 0.034)}px 'PressStart2P'`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const boxW = ctx.measureText(text).width + h * 0.07;
+  const boxH = h * 0.085;
+  const cx = w / 2, cy = h * 0.12;
+  roundRectPath(cx - boxW / 2, cy - boxH / 2, boxW, boxH, boxH * 0.28);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+  ctx.fill();
+  ctx.globalAlpha = 0.6 + Math.sin(performance.now() / 400) * 0.4;
+  ctx.fillStyle = '#ffe08a';
+  ctx.fillText(text, cx, cy);
+  ctx.restore();
+}
+
 // ---------- Déplacement de Lauren ----------
 function updatePlace5Lauren(dt) {
   if (!place5Entered) {
@@ -132,11 +218,6 @@ function updatePlace5Lauren(dt) {
   }
 
   stepPlayerWalk(place5Lauren, place5Phase === 'play' ? keyDirection() : 0, dt, PLACE5_LAUREN_MIN_X, PLACE5_LAUREN_MAX_X);
-
-  if (place5Phase === 'play' && place5Lauren.x >= PLACE5_TRIGGER_X) {
-    place5Phase = 'question';
-    place5QuestionStart = performance.now();
-  }
 }
 
 // ---------- Question libre ----------
@@ -246,8 +327,21 @@ function place5CanAnswer() {
 }
 
 function handlePlace5Down(evt) {
+  const pos = getPointerPos(evt);
+
+  // Ramasser le popcorn : c'est ce geste qui déclenche la question.
+  if (place5Phase === 'play') {
+    if (!place5PopcornInReach()) return;
+    if (!pointInRect(pos, place5PopcornRect(getPlace5ContainT(place5Assets)))) return;
+    playClickSound();
+    place5PopcornTaken = true;
+    place5Phase = 'question';
+    place5QuestionStart = performance.now();
+    return;
+  }
+
   if (!place5CanAnswer()) return;
-  if (pointInRect(getPointerPos(evt), place5ValidateRect())) { playClickSound(); place5Validate(); }
+  if (pointInRect(pos, place5ValidateRect())) { playClickSound(); place5Validate(); }
 }
 
 // Saisie au clavier (chiffres, effacement, Entrée) une fois la question écrite.
@@ -265,10 +359,17 @@ window.addEventListener('keydown', (e) => {
 
 canvas.addEventListener('pointerdown', (evt) => { if (scene === 'place5') handlePlace5Down(evt); });
 
-// Curseur "main" au survol du bouton Valider quand on peut répondre.
+// Curseur "main" : sur le popcorn quand Lauren est à côté, puis sur le bouton
+// Valider quand on peut répondre.
 canvas.addEventListener('pointermove', (evt) => {
   if (scene !== 'place5') return;
-  const over = place5CanAnswer() && pointInRect(getPointerPos(evt), place5ValidateRect());
+  const pos = getPointerPos(evt);
+  let over;
+  if (place5Phase === 'play') {
+    over = place5PopcornInReach() && pointInRect(pos, place5PopcornRect(getPlace5ContainT(place5Assets)));
+  } else {
+    over = place5CanAnswer() && pointInRect(pos, place5ValidateRect());
+  }
   canvas.style.cursor = over ? 'pointer' : 'default';
 });
 
@@ -283,9 +384,17 @@ function drawPlace5Scene(assets, elapsed, dt) {
   }
 
   updatePlace5Lauren(dt);
+  // La boîte est au sol, donc derrière Lauren si elle passe devant.
+  drawPlace5Popcorn(containT);
   drawCharacter(place5Lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE5_GROUND_Y);
 
-  if (place5Phase === 'play') drawKeyboardMoveHint();
+  if (place5Phase === 'play') {
+    drawKeyboardMoveHint();
+    if (elapsed >= PLACE5_HINT_DELAY) {
+      if (!place5HintNotified) { place5HintNotified = true; playNotifSound(); }
+      drawPlace5PopcornHint();
+    }
+  }
 
   if (place5Phase === 'question') drawPlace5Question(assets);
 

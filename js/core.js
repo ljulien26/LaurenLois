@@ -371,12 +371,23 @@ function answerHoverRect(r) {
   };
 }
 
+// Taille de police d'une réponse : celle de référence, réduite UNIQUEMENT si le
+// texte déborderait de la pastille (réponses longues, ex. « 3 septembre 2025 »).
+// La police reste donc identique partout tant que ça rentre.
+function answerFontPx(text, r) {
+  const fs = firstQuestionFontPx();
+  ctx.font = `${fs}px 'PressStart2P'`;
+  const maxW = r.w * 0.84;
+  const tw = ctx.measureText(text).width;
+  return tw > maxW ? fs * (maxW / tw) : fs;
+}
+
 // Dessine une pastille (image) + son texte centré, à la taille de police de
 // référence (identique aux réponses du café). Grossit un peu au survol.
 function drawAnswerPill(img, text, r) {
   r = answerHoverRect(r);
   ctx.drawImage(img, 0, 0, img.width, img.height, r.x, r.y, r.w, r.h);
-  const fs = firstQuestionFontPx();
+  const fs = answerFontPx(text, r);
   ctx.font = `${fs}px 'PressStart2P'`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -410,7 +421,8 @@ function answersTyping(qStart, questionText, answers) {
 function drawTypedAnswerPill(img, fullText, r, typingState) {
   r = answerHoverRect(r);
   ctx.drawImage(img, 0, 0, img.width, img.height, r.x, r.y, r.w, r.h);
-  const fs = firstQuestionFontPx();
+  // Taille calculée sur le texte COMPLET : elle ne bouge pas pendant la frappe.
+  const fs = answerFontPx(fullText, r);
   ctx.font = `${fs}px 'PressStart2P'`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

@@ -9,6 +9,26 @@
 // Fond : Assets/Jeu/Places/4.png. Affiches : Assets/Jeu/AffichesCinema/.
 // ============================================================
 
+// >>> CONTENU <<< Une question par séance : la date à laquelle on a vu CE film.
+// L'ordre suit celui des portes (gauche, centre, droite).
+const PLACE4_FILMS = [
+  {
+    question: 'Quand a-t-on vu « Heureux Gagnants » au cinéma ?',
+    reponses: ['1er avril 2024', '6 avril 2024', '10 avril 2024', '15 avril 2024'],
+    bonne: 1, // 6 avril 2024
+  },
+  {
+    question: 'Quand a-t-on vu « F1 » au cinéma ?',
+    reponses: ['3 juillet 2025', '11 juillet 2025', '27 juillet 2025', '2 août 2025'],
+    bonne: 3, // 2 août 2025
+  },
+  {
+    question: 'Quand a-t-on vu « Materialist » au cinéma ?',
+    reponses: ['3 juin 2025', '3 juillet 2025', '3 août 2025', '3 septembre 2025'],
+    bonne: 2, // 3 août 2025
+  },
+];
+
 const PLACE4_GROUND_Y = 515;
 const PLACE4_LAUREN_SCALE = 0.8;
 const PLACE4_LAUREN_START_X = -70;
@@ -33,11 +53,17 @@ const place4Lauren = createCharacter(
   PLACE4_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, PLACE4_LAUREN_SCALE, 2
 );
 
-// Phases : 'enter' (arrivée) -> 'choix' (halos + affiches) -> 'exit'.
+// Phases : 'enter' (arrivée) -> 'choix' (halos + affiches) -> 'question' (date
+// du film choisi) -> 'exit'.
 let place4Phase = 'enter';
 let place4Entered = false;
 let place4Assets = null;
 let place4ExitStart = 0;
+// Question de la séance choisie.
+let place4QuestionStart = null;
+let place4Picked = -1;
+let place4PickedStart = 0;
+let place4PickedCorrect = false;
 // Affiche affichée en grand (index de séance), -1 si aucune.
 let place4Zoom = -1;
 let place4ZoomStart = 0;
@@ -57,6 +83,8 @@ function place4Reset() {
   place4Zoom = -1;
   place4Help = false;
   place4Choice = -1;
+  place4QuestionStart = null;
+  place4Picked = -1;
   place4Lauren.x = PLACE4_LAUREN_START_X;
   place4Lauren.facing = 'right';
   place4Lauren.walking = false;
@@ -101,9 +129,8 @@ function place4DoorInReach() {
 }
 
 // Halo doré sur une porte : le MÊME sur les trois (même intensité), pour dire
-// « il y a trois séances, à toi de choisir ». Seule la mention « Entrer »
-// apparaît en plus sur la porte devant laquelle Lauren se trouve.
-function drawPlace4DoorHint(door, containT, elapsed, active) {
+// « il y a trois séances, à toi de choisir » sans en désigner aucune.
+function drawPlace4DoorHint(door, containT, elapsed) {
   const s = place4DoorScreen(door, containT);
   const pulse = 0.2 + Math.sin(elapsed / 360) * 0.12;
   ctx.save();
@@ -114,16 +141,6 @@ function drawPlace4DoorHint(door, containT, elapsed, active) {
   glow.addColorStop(1, 'rgba(255, 226, 150, 0)');
   ctx.fillStyle = glow;
   ctx.fillRect(s.cx - s.r * 1.4, s.cy - s.r * 1.4, s.r * 2.8, s.r * 2.8);
-  ctx.restore();
-
-  if (!active) return;
-  ctx.save();
-  ctx.globalAlpha = 0.85;
-  ctx.fillStyle = '#fff4d6';
-  ctx.font = `${Math.round(window.innerHeight * 0.026)}px 'PressStart2P'`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText('Entrer', s.cx, s.cy - s.r);
   ctx.restore();
 }
 
@@ -192,6 +209,80 @@ function drawPlace4Zoom(assets) {
   ctx.textBaseline = 'top';
   ctx.fillText('Clique pour refermer', W / 2, y + h + H * 0.02);
   ctx.restore();
+}
+
+// ---------- Question : la date du film choisi ----------
+function place4Film() {
+  return PLACE4_FILMS[place4Choice] || PLACE4_FILMS[0];
+}
+
+function place4PanelRect() {
+  const w = Math.min(window.innerWidth * 0.68, 560) * uiSizeFactor();
+  const h = w / (1717 / 916);
+  return { x: window.innerWidth / 2 - w / 2, y: window.innerHeight * 0.05, w, h };
+}
+
+function place4PillSize() {
+  const w = Math.min(window.innerWidth * 0.4, 270) * uiSizeFactor();
+  return { w, h: w / (1349 / 255) };
+}
+
+function place4AnswerRects() {
+  const panel = place4PanelRect();
+  const { w, h } = place4PillSize();
+  const gapX = w * 0.12;
+  const gapY = h * 0.5;
+  const cx = window.innerWidth / 2;
+  const topY = panel.y + panel.h + h * 0.6;
+  const leftX = cx - w - gapX / 2;
+  const rightX = cx + gapX / 2;
+  return [
+    { x: leftX, y: topY, w, h },
+    { x: rightX, y: topY, w, h },
+    { x: leftX, y: topY + h + gapY, w, h },
+    { x: rightX, y: topY + h + gapY, w, h },
+  ];
+}
+
+function place4AllTyped() {
+  const f = place4Film();
+  return questionTypingDone(place4QuestionStart, f.question) &&
+    answersTyping(place4QuestionStart, f.question, f.reponses).every((a) => a.full);
+}
+
+function drawPlace4Question(assets) {
+  const f = place4Film();
+  dimBackdrop();
+  const panel = place4PanelRect();
+  // Le son clavier est géré ici (pour couvrir aussi l'écriture des réponses).
+  const qDone = drawTypingQuestion(assets.quizPanel, panel, f.question, place4QuestionStart, false);
+  if (!qDone) {
+    setKeyboardTyping(place4QuestionStart != null);
+    return;
+  }
+
+  // Puis chaque réponse apparaît à son tour, écrite caractère par caractère.
+  const typing = answersTyping(place4QuestionStart, f.question, f.reponses);
+  const rects = place4AnswerRects();
+  rects.forEach((r, i) => {
+    if (!typing[i].visible) return;
+    let img = assets.menuBouton;
+    if (place4Picked === i) img = place4PickedCorrect ? assets.quizGood : assets.quizBad;
+    drawTypedAnswerPill(img, f.reponses[i], r, typing[i]);
+  });
+  setKeyboardTyping(!typing.every((a) => a.full));
+}
+
+// Bonne réponse : on entre dans le cinéma. Mauvaise : la pastille rougit un
+// instant, puis on peut réessayer.
+function updatePlace4Answer() {
+  if (place4Picked === -1) return;
+  const held = performance.now() - place4PickedStart;
+  if (place4PickedCorrect) {
+    if (held >= 700) { place4Picked = -1; place4Phase = 'exit'; place4ExitStart = performance.now(); }
+  } else if (held >= 600) {
+    place4Picked = -1;
+  }
 }
 
 // ---------- Bouton « Aide » ----------
@@ -281,8 +372,27 @@ function drawPlace4Prompt() {
 
 // ---------- Entrées souris ----------
 function handlePlace4Down(evt) {
-  if (place4Phase !== 'choix') return;
   const pos = getPointerPos(evt);
+
+  // La séance est choisie : on répond à la question sur sa date.
+  if (place4Phase === 'question') {
+    if (place4Picked !== -1 || !place4AllTyped()) return;
+    const f = place4Film();
+    const rects = place4AnswerRects();
+    for (let i = 0; i < rects.length; i++) {
+      if (pointInRect(pos, rects[i])) {
+        playClickSound();
+        place4Picked = i;
+        place4PickedStart = performance.now();
+        place4PickedCorrect = i === f.bonne;
+        if (place4PickedCorrect) playCorrectSound(); else playWrongSound();
+        return;
+      }
+    }
+    return;
+  }
+
+  if (place4Phase !== 'choix') return;
   const containT = getPlace4ContainT(place4Assets);
 
   // Affiche ouverte : n'importe quel clic la referme.
@@ -316,8 +426,9 @@ function handlePlace4Down(evt) {
   if (dx * dx + dy * dy <= s.r * s.r) {
     playClickSound();
     place4Choice = PLACE4_DOORS[reach].film;
-    place4Phase = 'exit';
-    place4ExitStart = performance.now();
+    place4Help = false;
+    place4Phase = 'question';
+    place4QuestionStart = performance.now();
   }
 }
 
@@ -327,6 +438,12 @@ canvas.addEventListener('pointerdown', (evt) => { if (scene === 'place4') handle
 // une affiche est ouverte (tout clic la referme).
 canvas.addEventListener('pointermove', (evt) => {
   if (scene !== 'place4') return;
+  if (place4Phase === 'question') {
+    const over = place4Picked === -1 && place4AllTyped() &&
+      place4AnswerRects().some((r) => pointInRect(getPointerPos(evt), r));
+    canvas.style.cursor = over ? 'pointer' : 'default';
+    return;
+  }
   if (place4Phase !== 'choix') { canvas.style.cursor = 'default'; return; }
   if (place4Zoom !== -1) { canvas.style.cursor = 'pointer'; return; }
   const pos = getPointerPos(evt);
@@ -352,13 +469,15 @@ function drawPlace4Scene(assets, elapsed, dt) {
 
   // Les trois portes s'éclairent dès que Lauren est en place.
   if (place4Phase === 'choix') {
-    const reach = place4DoorInReach();
-    PLACE4_DOORS.forEach((d, i) => drawPlace4DoorHint(d, containT, elapsed, i === reach && place4Zoom === -1));
+    PLACE4_DOORS.forEach((d) => drawPlace4DoorHint(d, containT, elapsed));
     drawPlace4PosterHover(containT);
   }
 
   updatePlace4Lauren(dt);
+  updatePlace4Answer();
   drawCharacter(place4Lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE4_GROUND_Y);
+
+  if (place4Phase === 'question') drawPlace4Question(assets);
 
   if (place4Phase === 'choix' && place4Zoom === -1) {
     // L'aide prend la place du bandeau d'invite (même zone d'écran).

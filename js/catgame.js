@@ -9,7 +9,7 @@
 // ============================================================
 
 // ---------- Mini-jeu (pluie de chats) ----------
-const CAT_DURATION = 37;      // secondes
+const CAT_DURATION = 35;      // secondes
 const CAT_GOAL = 30;          // chats à sauver
 const CAT_INTRO_MS = 2200;    // court écran d'intro avant le départ du chrono
 const CAT_SPAWN_MS = 470;     // intervalle d'apparition

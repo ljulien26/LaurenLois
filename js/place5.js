@@ -2,7 +2,7 @@
 // Décor 5 : intérieur du Cinéma Pathé. Lauren entre et avance ; une question
 // LIBRE apparaît : "Combien de fois est-on allé au cinéma ensemble ?". Le
 // joueur tape un nombre au clavier (Entrée pour valider, ou bouton Valider).
-// La réponse est acceptée à 5 près autour de 35 (donc 30 à 40). Bonne réponse
+// La réponse est acceptée à 2 près autour de 35 (donc 33 à 37). Bonne réponse
 // -> "GAGNÉ", puis on enchaîne sur le mini-jeu de la pluie de chats.
 //
 // Fond : Assets/Jeu/Places/5.png.
@@ -11,7 +11,7 @@
 // >>> CONTENU <<<
 const PLACE5_QUESTION = 'Combien de fois est-on allé au cinéma ensemble ?';
 const PLACE5_ANSWER = 35;
-const PLACE5_TOLERANCE = 5; // accepté de 30 à 40
+const PLACE5_TOLERANCE = 2; // accepté de 33 à 37
 
 const PLACE5_GROUND_Y = 515;
 const PLACE5_LAUREN_SCALE = 0.8;
@@ -248,13 +248,13 @@ function drawPlace5Question(assets) {
   const done = drawTypingQuestion(assets.quizPanel, panel, PLACE5_QUESTION, place5QuestionStart);
   if (!done) return; // le champ de saisie n'apparaît qu'une fois la question écrite
 
-  // sous-titre "à 5 près" (sous le panneau)
+  // sous-titre "à N près" (sous le panneau), calé sur PLACE5_TOLERANCE
   const box = place5InputRect();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `${Math.round(box.h * 0.32)}px 'PressStart2P'`;
   ctx.fillStyle = '#ffe8c2';
-  ctx.fillText('(réponse à 5 près)', window.innerWidth / 2, box.y - box.h * 0.35);
+  ctx.fillText(`(réponse à ${PLACE5_TOLERANCE} près)`, window.innerWidth / 2, box.y - box.h * 0.35);
   ctx.save();
   roundRectPath(box.x, box.y, box.w, box.h, box.h * 0.2);
   ctx.fillStyle = '#fff7ec';
@@ -314,7 +314,7 @@ function place5Win() {
   ctx.fillStyle = '#ffd76a';
   ctx.font = `${Math.round(window.innerHeight * 0.07)}px 'PressStart2P'`;
   ctx.fillText('Bravo !', window.innerWidth / 2, window.innerHeight * 0.44);
-  // La bonne réponse est validée à 5 près : on révèle le chiffre exact.
+  // La bonne réponse est validée à quelques unités près : on révèle le chiffre exact.
   ctx.fillStyle = '#ffffff';
   ctx.font = `${Math.round(window.innerHeight * 0.032)}px 'PressStart2P'`;
   ctx.fillText(`C'était ${PLACE5_ANSWER} fois !`, window.innerWidth / 2, window.innerHeight * 0.56);

@@ -63,6 +63,7 @@ Promise.all([
   loadImage('Assets/Jeu/Places/8/3.png'), // décor final : nuit
   loadImage('Assets/Jeu/Places/7.png'),   // décor 7 : Cartoucherie
   loadImage('Assets/Jeu/Puzzle/1.png'),   // photo du puzzle
+  loadImage('Assets/Jeu/Polaroid/1.png'), // Polaroid au sol (décor 7)
   // Écran final : les deux bras tendus, puis le sprite « couple » de l'étreinte.
   loadImage('Assets/Persos/Lauren/Côté/Calin.png'),
   loadImage('Assets/Persos/Loïs/Côté/Calin.png'),
@@ -94,7 +95,7 @@ Promise.all([
     basket26, basket27, basket28, basket29,
     cat1, cat2, cat3, panierImg, popcornImg,
     place8Day, place8Sunset, place8Night,
-    place7Fond, puzzleImg,
+    place7Fond, puzzleImg, polaroidImg,
     laurenCalin, loisCalin, cll1, cll2, cll3, cll4, tll1, tll2, tll3, tll4,
   ]) => {
     createClouds(nuagesImg);
@@ -113,7 +114,7 @@ Promise.all([
       panier: panierImg,
       popcorn: popcornImg,
       place8: [place8Day, place8Sunset, place8Night], // jour -> coucher -> nuit
-      place7Fond, puzzle: puzzleImg,
+      place7Fond, puzzle: puzzleImg, polaroid: polaroidImg,
       cadenasFrames: [cadenasClosed, cadenasOpen1],
       quizPanel, quizGood, quizBad,
       laurenIdle, laurenCalin, loisCalin,

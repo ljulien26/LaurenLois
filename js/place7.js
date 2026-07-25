@@ -15,7 +15,19 @@ const PLACE7_LAUREN_START_X = -70;
 const PLACE7_LAUREN_READY_X = 300;    // s'arrête plus au centre (rapprochée)
 const PLACE7_LAUREN_MIN_X = 60;
 const PLACE7_LAUREN_MAX_X = 905;
-const PLACE7_TRIGGER_X = 460; // au centre : déclenche le puzzle
+
+// Un vieux Polaroid traîne sur le parvis : c'est en allant le ramasser que le
+// puzzle démarre (il reste une photo à l'intérieur, en morceaux).
+const PLACE7_POLA_X = 620;
+const PLACE7_POLA_H = 36;    // hauteur visible de l'appareil (unités décor)
+const PLACE7_POLA_REACH = 110;
+// Emprise du dessin dans le PNG 960x540 (relevée sur l'image).
+const PLACE7_POLA_BOX = { cx: 476, bottom: 538, w: 669, h: 523 };
+// Petit message quand elle le ramasse, puis le puzzle apparaît.
+const PLACE7_POLA_LINE = 'Il reste une photo dedans... en morceaux !';
+const PLACE7_POLA_LINE_MS = 2200;
+// Filet de sécurité si elle ne le trouve pas.
+const PLACE7_HINT_DELAY = 25000;
 
 // Puzzle : grille 5 colonnes x 6 lignes = 30 pièces (plus difficile).
 const PUZZLE_COLS = 5;
@@ -30,8 +42,11 @@ const place7Lauren = createCharacter(
   PLACE7_LAUREN_START_X, 'left', LAUREN_VISIBLE_WIDTH_RATIO, 5, PLACE7_LAUREN_SCALE, 2
 );
 
-// Phases : 'enter' -> 'play' -> 'puzzle' -> 'win' -> 'exit'.
+// Phases : 'enter' -> 'play' (trouver le Polaroid) -> 'ramasse' (petite phrase)
+// -> 'puzzle' -> 'win' -> 'exit'.
 let place7Phase = 'enter';
+let place7PolaStart = 0;      // instant où elle a ramassé le Polaroid
+let place7HintNotified = false;
 let place7Entered = false;
 let place7Assets = null;
 // place7Board[pos] = index de la pièce posée sur cette case, ou -1 (vide).
@@ -65,6 +80,7 @@ function place7ShufflePuzzle() {
 function place7Reset() {
   place7Phase = 'enter';
   place7Entered = false;
+  place7HintNotified = false;
   place7Drag = null;
   place7ShufflePuzzle();
   place7Lauren.x = PLACE7_LAUREN_START_X;
@@ -80,6 +96,73 @@ function getPlace7ContainT(assets) {
   return getContainTransform(w, h, window.innerWidth, window.innerHeight);
 }
 
+// ---------- Polaroid au sol ----------
+// Rectangle écran occupé par l'appareil (le dessin, pas tout le canevas).
+function place7PolaRect(containT) {
+  const scale = (PLACE7_POLA_H / PLACE7_POLA_BOX.h) * containT.scale;
+  const w = PLACE7_POLA_BOX.w * scale;
+  const h = PLACE7_POLA_BOX.h * scale;
+  const cx = containT.dx + PLACE7_POLA_X * containT.scale;
+  const bottom = containT.dy + PLACE7_GROUND_Y * containT.scale;
+  return { x: cx - w / 2, y: bottom - h, w, h };
+}
+
+function place7PolaInReach() {
+  return Math.abs(place7Lauren.x - PLACE7_POLA_X) <= PLACE7_POLA_REACH;
+}
+
+function drawPlace7Polaroid(containT) {
+  const img = place7Assets && place7Assets.polaroid;
+  if (!img) return;
+  const r = place7PolaRect(containT);
+
+  // Halo doré tant qu'elle ne l'a pas ramassé (même langage que les portes).
+  if (place7Phase === 'play') {
+    const cx = r.x + r.w / 2, cy = r.y + r.h * 0.55;
+    const rad = r.w * 0.95;
+    const pulse = 0.2 + Math.sin(performance.now() / 360) * 0.12;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = Math.max(0, pulse);
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+    g.addColorStop(0, 'rgba(255, 226, 150, 0.85)');
+    g.addColorStop(1, 'rgba(255, 226, 150, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(cx - rad, cy - rad, rad * 2, rad * 2);
+    ctx.restore();
+  }
+
+  // Le PNG fait 960x540 avec le dessin centré : on le pose à la même échelle.
+  const scale = r.h / PLACE7_POLA_BOX.h;
+  const dw = img.width * scale, dh = img.height * scale;
+  const dx = r.x + r.w / 2 - PLACE7_POLA_BOX.cx * scale;
+  const dy = r.y + r.h - PLACE7_POLA_BOX.bottom * scale;
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+// Bandeau : « Il reste une photo dedans... » puis le message d'aide.
+function drawPlace7Banner(text) {
+  const w = window.innerWidth, h = window.innerHeight;
+  ctx.save();
+  let fs = Math.round(h * 0.032);
+  ctx.font = `${fs}px 'PressStart2P'`;
+  const maxW = w * 0.86;
+  let tw = ctx.measureText(text).width;
+  if (tw > maxW) { fs = Math.floor(fs * maxW / tw); ctx.font = `${fs}px 'PressStart2P'`; tw = ctx.measureText(text).width; }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const boxW = tw + h * 0.07;
+  const boxH = h * 0.085;
+  const cx = w / 2, cy = h * 0.12;
+  roundRectPath(cx - boxW / 2, cy - boxH / 2, boxW, boxH, boxH * 0.28);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.62)';
+  ctx.fill();
+  ctx.globalAlpha = 0.65 + Math.sin(performance.now() / 400) * 0.35;
+  ctx.fillStyle = '#ffe08a';
+  ctx.fillText(text, cx, cy);
+  ctx.restore();
+}
+
 // ---------- Déplacement de Lauren ----------
 function updatePlace7Lauren(dt) {
   if (!place7Entered) {
@@ -89,9 +172,6 @@ function updatePlace7Lauren(dt) {
     return;
   }
   stepPlayerWalk(place7Lauren, place7Phase === 'play' ? keyDirection() : 0, dt, PLACE7_LAUREN_MIN_X, PLACE7_LAUREN_MAX_X);
-  if (place7Phase === 'play' && place7Lauren.x >= PLACE7_TRIGGER_X) {
-    place7Phase = 'puzzle';
-  }
 }
 
 // ---------- Géométrie du plateau (vide) ----------
@@ -332,8 +412,19 @@ function drawPlace7Win() {
 
 // ---------- Entrées : glisser-déposer réserve <-> plateau ----------
 function handlePlace7Down(evt) {
-  if (place7Phase !== 'puzzle') return;
   const pos = getPointerPos(evt);
+
+  // Ramasser le Polaroid : c'est ce geste qui lance le puzzle.
+  if (place7Phase === 'play') {
+    if (!place7PolaInReach()) return;
+    if (!isInsideRect(pos, place7PolaRect(getPlace7ContainT(place7Assets)))) return;
+    playClickSound();
+    place7Phase = 'ramasse';
+    place7PolaStart = performance.now();
+    return;
+  }
+
+  if (place7Phase !== 'puzzle') return;
 
   // Bouton « Aide » : bascule l'affichage du modèle.
   if (isInsideRect(pos, place7HelpButtonRect())) {
@@ -426,6 +517,12 @@ canvas.addEventListener('pointercancel', (evt) => { if (scene === 'place7') hand
 canvas.addEventListener('pointermove', (evt) => {
   if (scene !== 'place7') return;
   handlePlace7Move(evt);
+  if (place7Phase === 'play') {
+    const over = place7PolaInReach() &&
+      isInsideRect(getPointerPos(evt), place7PolaRect(getPlace7ContainT(place7Assets)));
+    canvas.style.cursor = over ? 'pointer' : 'default';
+    return;
+  }
   if (place7Phase !== 'puzzle') { canvas.style.cursor = 'default'; return; }
   if (place7Drag) { canvas.style.cursor = 'grabbing'; return; }
   const pos = getPointerPos(evt);
@@ -443,9 +540,23 @@ function drawPlace7Scene(assets, elapsed, dt) {
   if (assets.place7Fond) drawBackgroundContain(assets.place7Fond, containT);
 
   updatePlace7Lauren(dt);
+  // L'appareil est au sol : derrière Lauren si elle passe devant.
+  if (place7Phase === 'play' || place7Phase === 'ramasse') drawPlace7Polaroid(containT);
   drawCharacter(place7Lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE7_GROUND_Y);
 
-  if (place7Phase === 'play') drawKeyboardMoveHint();
+  if (place7Phase === 'play') {
+    drawKeyboardMoveHint();
+    if (elapsed >= PLACE7_HINT_DELAY) {
+      if (!place7HintNotified) { place7HintNotified = true; playNotifSound(); }
+      drawPlace7Banner('Ramasse le Polaroid');
+    }
+  }
+
+  // Petite phrase avant l'ouverture du puzzle.
+  if (place7Phase === 'ramasse') {
+    drawPlace7Banner(PLACE7_POLA_LINE);
+    if (performance.now() - place7PolaStart >= PLACE7_POLA_LINE_MS) place7Phase = 'puzzle';
+  }
 
   if (place7Phase === 'puzzle') drawPlace7Puzzle(assets);
   else if (place7Phase === 'win' || place7Phase === 'exit') {

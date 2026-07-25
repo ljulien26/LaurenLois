@@ -10,7 +10,7 @@
 // ============================================================
 
 const PLACE7_GROUND_Y = 515;
-const PLACE7_LAUREN_SCALE = 0.7;      // un peu plus petite qu'avant (0.8)
+const PLACE7_LAUREN_SCALE = 0.595;    // -15 % (elle paraissait trop grande à 0.7)
 const PLACE7_LAUREN_START_X = -70;
 const PLACE7_LAUREN_READY_X = 300;    // s'arrête plus au centre (rapprochée)
 const PLACE7_LAUREN_MIN_X = 60;

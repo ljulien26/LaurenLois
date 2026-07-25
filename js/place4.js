@@ -41,6 +41,8 @@ let place4ExitStart = 0;
 // Affiche affichée en grand (index de séance), -1 si aucune.
 let place4Zoom = -1;
 let place4ZoomStart = 0;
+// Panneau d'aide ouvert (bouton « Aide » en haut à droite).
+let place4Help = false;
 // Séance choisie (index), -1 tant qu'elle n'a pas franchi une porte. Sert au
 // décor 5 pour s'adapter au film choisi.
 let place4Choice = -1;
@@ -53,6 +55,7 @@ function place4Reset() {
   place4Phase = 'enter';
   place4Entered = false;
   place4Zoom = -1;
+  place4Help = false;
   place4Choice = -1;
   place4Lauren.x = PLACE4_LAUREN_START_X;
   place4Lauren.facing = 'right';
@@ -97,12 +100,12 @@ function place4DoorInReach() {
   return -1;
 }
 
-// Halo doré sur une porte. Plus vif sur la porte à portée de Lauren, qui est la
-// seule où l'on peut entrer : le halo dit à la fois « il y a trois séances » et
-// « c'est celle-ci que tu peux choisir ».
+// Halo doré sur une porte : le MÊME sur les trois (même intensité), pour dire
+// « il y a trois séances, à toi de choisir ». Seule la mention « Entrer »
+// apparaît en plus sur la porte devant laquelle Lauren se trouve.
 function drawPlace4DoorHint(door, containT, elapsed, active) {
   const s = place4DoorScreen(door, containT);
-  const pulse = (active ? 0.34 : 0.16) + Math.sin(elapsed / 360) * (active ? 0.14 : 0.07);
+  const pulse = 0.2 + Math.sin(elapsed / 360) * 0.12;
   ctx.save();
   ctx.globalAlpha = Math.max(0, pulse);
   ctx.globalCompositeOperation = 'lighter';
@@ -191,6 +194,72 @@ function drawPlace4Zoom(assets) {
   ctx.restore();
 }
 
+// ---------- Bouton « Aide » ----------
+const PLACE4_HELP_TEXT = 'Va devant la porte de la séance, et clique sur la porte.';
+const PLACE4_HELP_PS = 'Ps : Tu peux également cliquer sur les affiches pour voir de quel film il s’agit.';
+
+// Même bouton que celui du puzzle (décor 7), en haut à droite.
+function place4HelpButtonRect() {
+  const w = Math.min(window.innerWidth * 0.15, 190);
+  const h = Math.max(34, window.innerHeight * 0.06);
+  return { x: window.innerWidth - w - window.innerWidth * 0.03, y: window.innerHeight * 0.04, w, h };
+}
+
+function drawPlace4HelpButton() {
+  const r = place4HelpButtonRect();
+  const hover = place4Zoom === -1 && isInsideRect(pointerPos, r);
+  ctx.save();
+  ctx.fillStyle = place4Help ? 'rgba(255,215,106,0.9)' : (hover ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.5)');
+  roundRectPath(r.x, r.y, r.w, r.h, r.h * 0.25);
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  roundRectPath(r.x, r.y, r.w, r.h, r.h * 0.25);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = place4Help ? '#2a2a2a' : '#ffffff';
+  ctx.font = `${Math.round(r.h * 0.32)}px 'PressStart2P'`;
+  ctx.fillText('Aide', r.x + r.w / 2, r.y + r.h / 2 + 1);
+  ctx.restore();
+}
+
+// Panneau d'aide : la consigne, puis le « Ps » en plus discret.
+function drawPlace4HelpPanel() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const btn = place4HelpButtonRect();
+  const boxW = Math.min(W * 0.74, 700);
+  const pad = boxW * 0.05;
+  const fs = Math.round(H * 0.026);
+  const psFs = Math.round(H * 0.021);
+  const lines = wrapTextAtFont(PLACE4_HELP_TEXT, boxW - pad * 2, fs);
+  const psLines = wrapTextAtFont(PLACE4_HELP_PS, boxW - pad * 2, psFs);
+  const lineH = fs * 1.6, psLineH = psFs * 1.7;
+  const boxH = pad * 2 + lines.length * lineH + psLines.length * psLineH + fs * 0.6;
+  const x = W / 2 - boxW / 2, y = btn.y + btn.h + H * 0.02;
+
+  ctx.save();
+  roundRectPath(x, y, boxW, boxH, boxH * 0.1);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 224, 138, 0.9)';
+  ctx.lineWidth = 2;
+  roundRectPath(x, y, boxW, boxH, boxH * 0.1);
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  let cy = y + pad + lineH / 2;
+  ctx.fillStyle = '#ffe08a';
+  ctx.font = `${fs}px 'PressStart2P'`;
+  lines.forEach((l) => { ctx.fillText(l, W / 2, cy); cy += lineH; });
+  cy += fs * 0.6;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.82)';
+  ctx.font = `${psFs}px 'PressStart2P'`;
+  psLines.forEach((l) => { ctx.fillText(l, W / 2, cy); cy += psLineH; });
+  ctx.restore();
+}
+
 // Bandeau d'invite en haut de l'écran.
 function drawPlace4Prompt() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -220,6 +289,13 @@ function handlePlace4Down(evt) {
   if (place4Zoom !== -1) {
     playClickSound();
     place4Zoom = -1;
+    return;
+  }
+
+  // Bouton « Aide » : ouvre / referme la consigne.
+  if (isInsideRect(pos, place4HelpButtonRect())) {
+    playClickSound();
+    place4Help = !place4Help;
     return;
   }
 
@@ -255,7 +331,7 @@ canvas.addEventListener('pointermove', (evt) => {
   if (place4Zoom !== -1) { canvas.style.cursor = 'pointer'; return; }
   const pos = getPointerPos(evt);
   const containT = getPlace4ContainT(place4Assets);
-  let over = place4PosterUnder(pos, containT) !== -1;
+  let over = isInsideRect(pos, place4HelpButtonRect()) || place4PosterUnder(pos, containT) !== -1;
   if (!over) {
     const reach = place4DoorInReach();
     if (reach !== -1) {
@@ -285,8 +361,10 @@ function drawPlace4Scene(assets, elapsed, dt) {
   drawCharacter(place4Lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE4_GROUND_Y);
 
   if (place4Phase === 'choix' && place4Zoom === -1) {
-    drawPlace4Prompt();
+    // L'aide prend la place du bandeau d'invite (même zone d'écran).
+    if (place4Help) drawPlace4HelpPanel(); else drawPlace4Prompt();
     drawKeyboardMoveHint();
+    drawPlace4HelpButton();
   }
 
   if (place4Zoom !== -1) drawPlace4Zoom(assets);

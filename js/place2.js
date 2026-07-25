@@ -50,9 +50,9 @@ let place2PickedCorrect = false;
 
 let place2Assets = null;
 
-// Si au bout d'une minute la joueuse n'a pas progressé (toujours en train de
+// Si au bout d'un moment la joueuse n'a pas progressé (toujours en train de
 // marcher), on affiche un message explicite « va tout à droite » + son notif.
-const PLACE2_GO_RIGHT_DELAY = 50000;
+const PLACE2_GO_RIGHT_DELAY = 30000;
 let place2HintNotified = false;
 
 function place2Reset() {
@@ -374,7 +374,7 @@ function drawPlace2Scene(assets, elapsed, dt) {
   // nouveau à l'exploration (vers la sortie). Masqué pendant la question.
   if (place2Phase === 'enter' || place2Phase === 'explore') {
     drawPlace2ExitHint();
-    // Au bout d'une minute sans avoir progressé : message explicite + notif.
+    // Au bout de 30 s sans avoir progressé : message explicite + notif.
     if (elapsed >= PLACE2_GO_RIGHT_DELAY) {
       if (!place2HintNotified) { place2HintNotified = true; playNotifSound(); }
       drawPlace2GoRightMessage();

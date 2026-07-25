@@ -98,6 +98,112 @@ function getPlace4ContainT(assets) {
   return getContainTransform(w, h, window.innerWidth, window.innerHeight);
 }
 
+// ---------- Ambiance : enseignes lumineuses + sol mouillé ----------
+// Tout est procédural (aucun asset) : un halo qui respire sur les trois
+// enseignes, un grésillement de néon de temps en temps sur « PATHE », et la
+// lumière des portes qui se reflète sur le dallage mouillé en ondulant.
+const PLACE4_SIGNS = [
+  { x: 119, y: 231, w: 145, h: 32, neon: false }, // cinéma (gauche)
+  { x: 417, y: 231, w: 146, h: 32, neon: true },  // PATHE (centre)
+  { x: 699, y: 231, w: 145, h: 32, neon: false }, // cinéma (droite)
+];
+const PLACE4_FLOOR_TOP = 449;    // haut du dallage mouillé
+const PLACE4_FLOOR_BOTTOM = 534; // au-delà, le reflet est éteint
+const PLACE4_FLOOR_HALF_W = 66;  // demi-largeur d'une flaque de lumière
+
+// Grésillement du néon : courtes salves, espacées de plusieurs secondes.
+let place4FlickerEnd = 0;
+let place4NextFlicker = 0;
+
+function place4NeonLevel(t) {
+  if (place4NextFlicker === 0) place4NextFlicker = t + 3000 + Math.random() * 5000;
+  if (t >= place4NextFlicker) {
+    place4FlickerEnd = t + 180 + Math.random() * 260;
+    place4NextFlicker = place4FlickerEnd + 5000 + Math.random() * 9000;
+  }
+  if (t > place4FlickerEnd) return 1;
+  // Battement rapide et irrégulier : l'enseigne s'éteint presque par à-coups.
+  return Math.sin(t / 26) * Math.sin(t / 11) > 0.1 ? 0.3 : 1;
+}
+
+function drawPlace4SignGlow(sign, containT, t, level) {
+  const x = containT.dx + sign.x * containT.scale;
+  const y = containT.dy + sign.y * containT.scale;
+  const w = sign.w * containT.scale;
+  const h = sign.h * containT.scale;
+  const cx = x + w / 2, cy = y + h / 2;
+  const breathe = 0.85 + 0.15 * Math.sin(t / 900 + sign.x);
+  const a = breathe * level;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  // Bloom diffus autour du panneau.
+  const r = Math.max(w, h) * 0.8;
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+  glow.addColorStop(0, `rgba(255, 222, 150, ${0.17 * a})`);
+  glow.addColorStop(1, 'rgba(255, 222, 150, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  // Cœur : le panneau lui-même, un peu plus lumineux.
+  ctx.globalAlpha = 0.1 * a;
+  ctx.fillStyle = 'rgb(255, 236, 190)';
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+
+// Reflet des portes sur le dallage : une flaque de lumière par porte, dans
+// laquelle glissent lentement des ondes horizontales.
+function drawPlace4FloorGlow(containT, t, neonLevel) {
+  const top = containT.dy + PLACE4_FLOOR_TOP * containT.scale;
+  const bot = containT.dy + PLACE4_FLOOR_BOTTOM * containT.scale;
+  const halfW = PLACE4_FLOOR_HALF_W * containT.scale;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  PLACE4_DOORS.forEach((d, i) => {
+    const cx = containT.dx + d.doorX * containT.scale;
+    const level = (d.film === 1 ? neonLevel : 1) * (0.86 + 0.14 * Math.sin(t / 1100 + i * 2.1));
+
+    // Flaque : plus large et plus faible en s'éloignant de la porte.
+    const pool = ctx.createLinearGradient(0, top, 0, bot);
+    pool.addColorStop(0, `rgba(255, 214, 140, ${0.15 * level})`);
+    pool.addColorStop(0.45, `rgba(255, 206, 130, ${0.07 * level})`);
+    pool.addColorStop(1, 'rgba(255, 200, 120, 0)');
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.moveTo(cx - halfW * 0.72, top);
+    ctx.lineTo(cx + halfW * 0.72, top);
+    ctx.lineTo(cx + halfW * 1.5, bot);
+    ctx.lineTo(cx - halfW * 1.5, bot);
+    ctx.closePath();
+    ctx.fill();
+
+    // Ondes : trois bandes qui descendent doucement dans la flaque.
+    for (let k = 0; k < 3; k++) {
+      const p = ((t / 3400 + k / 3 + i * 0.17) % 1);
+      const y = top + p * (bot - top);
+      const fade = Math.sin(p * Math.PI); // apparaît puis s'efface
+      const bandH = Math.max(1.5, 3 * containT.scale);
+      const spread = halfW * (0.7 + p * 0.8);
+      const band = ctx.createLinearGradient(cx - spread, 0, cx + spread, 0);
+      const aa = 0.09 * fade * level;
+      band.addColorStop(0, 'rgba(255, 228, 170, 0)');
+      band.addColorStop(0.5, `rgba(255, 228, 170, ${aa})`);
+      band.addColorStop(1, 'rgba(255, 228, 170, 0)');
+      ctx.fillStyle = band;
+      ctx.fillRect(cx - spread, y, spread * 2, bandH);
+    }
+  });
+  ctx.restore();
+}
+
+function drawPlace4Ambience(containT) {
+  const t = performance.now();
+  const neon = place4NeonLevel(t);
+  PLACE4_SIGNS.forEach((s) => drawPlace4SignGlow(s, containT, t, s.neon ? neon : 1));
+  drawPlace4FloorGlow(containT, t, neon);
+}
+
 // ---------- Déplacement de Lauren ----------
 function updatePlace4Lauren(dt) {
   if (!place4Entered) {
@@ -466,6 +572,9 @@ function drawPlace4Scene(assets, elapsed, dt) {
   const containT = getPlace4ContainT(assets);
 
   if (assets.place4Fond) drawBackgroundContain(assets.place4Fond, containT);
+
+  // Enseignes qui respirent (+ néon PATHE qui grésille) et reflets au sol.
+  drawPlace4Ambience(containT);
 
   // Les trois portes s'éclairent dès que Lauren est en place.
   if (place4Phase === 'choix') {

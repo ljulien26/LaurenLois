@@ -19,7 +19,7 @@ const PLACE7_LAUREN_MAX_X = 905;
 // Un vieux Polaroid traîne sur le parvis : c'est en allant le ramasser que le
 // puzzle démarre (il reste une photo à l'intérieur, en morceaux).
 const PLACE7_POLA_X = 620;
-const PLACE7_POLA_H = 36;    // hauteur visible de l'appareil (unités décor)
+const PLACE7_POLA_H = 26;    // hauteur visible de l'appareil (unités décor)
 const PLACE7_POLA_REACH = 110;
 // Emprise du dessin dans le PNG 960x540 (relevée sur l'image).
 const PLACE7_POLA_BOX = { cx: 476, bottom: 538, w: 669, h: 523 };
@@ -116,8 +116,9 @@ function drawPlace7Polaroid(containT) {
   if (!img) return;
   const r = place7PolaRect(containT);
 
-  // Halo doré tant qu'elle ne l'a pas ramassé (même langage que les portes).
-  if (place7Phase === 'play') {
+  // Halo doré tant qu'elle ne l'a pas ramassé (même langage que les portes) :
+  // il pulse déjà pendant qu'elle entre, pour qu'on le repère tout de suite.
+  if (place7Phase === 'enter' || place7Phase === 'play') {
     const cx = r.x + r.w / 2, cy = r.y + r.h * 0.55;
     const rad = r.w * 0.95;
     const pulse = 0.2 + Math.sin(performance.now() / 360) * 0.12;
@@ -540,8 +541,10 @@ function drawPlace7Scene(assets, elapsed, dt) {
   if (assets.place7Fond) drawBackgroundContain(assets.place7Fond, containT);
 
   updatePlace7Lauren(dt);
-  // L'appareil est au sol : derrière Lauren si elle passe devant.
-  if (place7Phase === 'play' || place7Phase === 'ramasse') drawPlace7Polaroid(containT);
+  // L'appareil est posé là depuis le début et il y reste : visible dès l'entrée
+  // de Lauren et pendant tout le reste de la scène (derrière elle si elle passe
+  // devant). Seul son halo s'éteint une fois ramassé.
+  drawPlace7Polaroid(containT);
   drawCharacter(place7Lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE7_GROUND_Y);
 
   if (place7Phase === 'play') {

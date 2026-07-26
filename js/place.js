@@ -189,6 +189,74 @@ function drawPlaceLockHint(containT, elapsed) {
   ctx.restore();
 }
 
+// ---------- Bouton « Aide » (au bout d'un moment sans rien faire) ----------
+// Si au bout de 30 s elle n'a toujours pas ouvert le cadenas, un bouton « Aide »
+// apparaît en haut à droite (même bouton que le puzzle et le cinéma) et donne
+// la marche à suivre.
+const PLACE_HELP_DELAY = 30000;
+const PLACE_HELP_TEXT = 'Rapproche-toi du cadenas et clique dessus.';
+let placeLockUsed = false;   // elle a déjà ouvert le cadenas au moins une fois
+let placeHelpNotified = false;
+let placeHelp = false;       // panneau d'aide ouvert
+let placeHelpVisible = false; // bouton affiché (recalculé à chaque image)
+
+function placeHelpAvailable(elapsed) {
+  return placePhase === 'play' && !lockActive && !placeLockUsed && elapsed >= PLACE_HELP_DELAY;
+}
+
+function placeHelpButtonRect() {
+  const w = Math.min(window.innerWidth * 0.15, 190);
+  const h = Math.max(34, window.innerHeight * 0.06);
+  return { x: window.innerWidth - w - window.innerWidth * 0.03, y: window.innerHeight * 0.04, w, h };
+}
+
+function drawPlaceHelpButton() {
+  const r = placeHelpButtonRect();
+  const hover = isInsideRect(pointerPos, r);
+  ctx.save();
+  ctx.fillStyle = placeHelp ? 'rgba(255,215,106,0.9)' : (hover ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.5)');
+  roundRectPath(r.x, r.y, r.w, r.h, r.h * 0.25);
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  roundRectPath(r.x, r.y, r.w, r.h, r.h * 0.25);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = placeHelp ? '#2a2a2a' : '#ffffff';
+  ctx.font = `${Math.round(r.h * 0.32)}px 'PressStart2P'`;
+  ctx.fillText('Aide', r.x + r.w / 2, r.y + r.h / 2 + 1);
+  ctx.restore();
+}
+
+function drawPlaceHelpPanel() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const btn = placeHelpButtonRect();
+  const boxW = Math.min(W * 0.74, 700);
+  const pad = boxW * 0.05;
+  const fs = Math.round(H * 0.026);
+  const lines = wrapTextAtFont(PLACE_HELP_TEXT, boxW - pad * 2, fs);
+  const lineH = fs * 1.6;
+  const boxH = pad * 2 + lines.length * lineH;
+  const x = W / 2 - boxW / 2, y = btn.y + btn.h + H * 0.02;
+
+  ctx.save();
+  roundRectPath(x, y, boxW, boxH, boxH * 0.14);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 224, 138, 0.9)';
+  ctx.lineWidth = 2;
+  roundRectPath(x, y, boxW, boxH, boxH * 0.14);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffe08a';
+  ctx.font = `${fs}px 'PressStart2P'`;
+  let cy = y + pad + lineH / 2;
+  lines.forEach((l) => { ctx.fillText(l, W / 2, cy); cy += lineH; });
+  ctx.restore();
+}
+
 function updatePlaceLauren(dt) {
   // Entrée : elle marche depuis la gauche jusqu'à sa position, puis devient
   // jouable (aucune interaction du joueur pendant cette arrivée).
@@ -210,6 +278,14 @@ function handlePlaceDown(evt) {
   if (lockActive || !placeEntered) return;
   const pos = getPointerPos(evt);
 
+  // Bouton « Aide » (présent seulement au bout d'un moment) : ouvre / referme
+  // la consigne.
+  if (placeHelpVisible && isInsideRect(pos, placeHelpButtonRect())) {
+    playClickSound();
+    placeHelp = !placeHelp;
+    return;
+  }
+
   // Clic sur le cadenas peint : ouvre l'overlay si Lauren est assez proche.
   const containT = getPlaceContainT(placeAssets);
   const s = getPlaceLockScreen(containT);
@@ -217,6 +293,8 @@ function handlePlaceDown(evt) {
   const dy = pos.y - s.cy;
   if (dx * dx + dy * dy <= s.r * s.r && laurenNearLock()) {
     playClickSound();
+    placeLockUsed = true; // elle a trouvé : plus besoin de proposer l'aide
+    placeHelp = false;
     openLock(onPlaceUnlock);
   }
 }
@@ -229,7 +307,8 @@ canvas.addEventListener('pointermove', (evt) => {
   const s = getPlaceLockScreen(getPlaceContainT(placeAssets));
   const dx = pos.x - s.cx;
   const dy = pos.y - s.cy;
-  const over = dx * dx + dy * dy <= s.r * s.r && laurenNearLock();
+  const over = (dx * dx + dy * dy <= s.r * s.r && laurenNearLock()) ||
+    (placeHelpVisible && isInsideRect(pos, placeHelpButtonRect()));
   canvas.style.cursor = over ? 'pointer' : 'default';
 });
 
@@ -292,6 +371,15 @@ function drawPlaceScene(assets, elapsed, dt) {
   drawCharacter(placeLauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE_GROUND_Y);
 
   if (placeEntered && !lockActive && placePhase === 'play') drawKeyboardMoveHint();
+
+  // Bouton « Aide » : n'apparaît qu'au bout de PLACE_HELP_DELAY sans avoir
+  // ouvert le cadenas (petite notif à son apparition, comme les autres indices).
+  placeHelpVisible = placeHelpAvailable(elapsed);
+  if (placeHelpVisible) {
+    if (!placeHelpNotified) { placeHelpNotified = true; playNotifSound(); }
+    if (placeHelp) drawPlaceHelpPanel();
+    drawPlaceHelpButton();
+  }
 
   // Overlay du cadenas par-dessus la scène.
   if (lockActive) drawLockScene(assets, elapsed, dt);

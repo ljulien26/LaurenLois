@@ -24,7 +24,7 @@ Le jeu démarre bien **au tout début** (`premenu`) : plus aucun forçage de sc�
 |---|---|---|
 | premenu | premenu*.js | Loïs (bot) puis Lauren appuient sur les boutons ; télé qui flashe ; son d'activation |
 | menu | menu.js | Titre + bouton « Démarrer l'aventure » (musique Take on Me) |
-| place | place.js + lock.js | Décor 1 : portail, **cadenas** à combinaison (6 molettes) + indices + bouton Valider |
+| place | place.js + lock.js | Décor 1 : portail, **cadenas** à combinaison (6 molettes) + indices + bouton Valider + **bouton « Aide » au bout de 30 s** |
 | place2 | place2.js | Décor 2 : café BlasTodice, question QCM |
 | place3 | place3.js | Décor 3 : Saint-Sernin, **tickets à gratter** (ticket tombe du ciel) |
 | place4 | place4.js | Décor 4 : Cinéma Pathé façade, **3 portes = 3 séances** (affiches cliquables → grand format), on entre par la porte de son choix |
@@ -52,7 +52,7 @@ Convention : commentaires **en français**, style/idiome du code environnant, po
 - Questions : la question **s'écrit** caractère par caractère (son clavier), puis les réponses apparaissent **une à une** ; elles **grossissent au survol** (`answerHoverRect`). Clic réponse → **son de clic** + **son correct/faux**. Police **uniforme** (`firstQuestionFontPx`).
 
 ## Réponses / contenu (pour référence)
-- Cadenas (place) : code **`[3,0,0,3,2,4]`** (30/03/24). `HINTS = ['JJMMAA','1ère rencontre','30/XX/XX']`, seuils `[3,5,7]` mauvais essais (une **validation ratée** = 1 essai). Indice + notif **différés à la fin du son « faux »**.
+- Cadenas (place) : si au bout de `PLACE_HELP_DELAY=30 s` elle n'a pas encore ouvert le cadenas, un **bouton « Aide »** (même style que place4/place7) apparaît en haut à droite + notif, et affiche « **Rapproche-toi du cadenas et clique dessus.** » ; il disparaît dès qu'elle ouvre le cadenas. Code **`[3,0,0,3,2,4]`** (30/03/24). `HINTS = ['JJMMAA','1ère rencontre','30/XX/XX']`, seuils `[3,5,7]` mauvais essais (une **validation ratée** = 1 essai). Indice + notif **différés à la fin du son « faux »**.
 - Café (place2) : → **Le blastodice** (index 0).
 - Saint-Sernin (place3) : → **Heureux gagnants** (ticket VRAI). Écran de réussite « **Bravo !** ». Lauren `SCALE=0.8907`.
 - Cinéma façade (place4) : **3 séances**, une par porte — gauche **Heureux gagnants**, centre **F1**, droite **Materialists** (les 4 affiches d'un groupe sont déjà dans le décor `4.png`). Les **3 portes ont le même halo, même intensité** (centres `209 / 483 / 759`, milieu `385` ; seule la mention « Entrer » s'ajoute sur la porte à portée, `PLACE4_DOOR_REACH=120`) ; **bouton « Aide » en haut à droite** (même style que celui du puzzle) qui ouvre la consigne à la place du bandeau « Choisis ta séance » ; **ambiance procédurale** (`drawPlace4Ambience`) : halo qui respire sur les 3 enseignes (`PLACE4_SIGNS`) + **grésillement du néon « PATHE »** par courtes salves espacées (pas d'animation au sol : essayée puis retirée, le dev n'aimait pas) ; **cliquer un bandeau d'affiches** (`PLACE4_DOORS[i].posters`) l'ouvre **en grand** (clic pour refermer). Entrer par une porte enregistre le choix dans **`place4Choice`** (0/1/2) puis pose la **question de la date de CE film** (`PLACE4_FILMS[i]`) : Heureux Gagnants → **6 avril 2024**, F1 → **2 août 2025**, Materialist → **3 août 2025**. Bonne réponse → place5. ⏳ **À venir** : ce qui change dans la salle selon `place4Choice`.

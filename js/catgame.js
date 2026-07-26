@@ -38,6 +38,40 @@ catMeow.volume = 0.14;
 registerAudioForUnlock(catMeow);
 let catLastMeow = 0;
 
+// ---------- Musique propre au mini-jeu ----------
+// Pendant qu'on sauve les chats, cette boucle REMPLACE la musique de fond des
+// décors (core.js interroge catMiniGameMusicOn() pour couper la sienne).
+const CAT_MUSIC_VOLUME = 0.18;
+const CAT_MUSIC_FADE_MS = 700;
+const catMusic = new Audio('Assets/Sound/Chat/MusiqueFond.mp3');
+catMusic.loop = true;
+catMusic.volume = 0;
+registerAudioForUnlock(catMusic);
+
+// Vrai du lancement du mini-jeu jusqu'à son issue (gagné / perdu / réessayer).
+function catMiniGameMusicOn() {
+  return scene === 'catgame' &&
+    (catPhase === 'intro' || catPhase === 'play' || catPhase === 'win' || catPhase === 'lose');
+}
+
+// Appelée à chaque image depuis la boucle de jeu (core.js), même hors scène :
+// c'est ce qui permet le fondu de sortie quand on quitte le mini-jeu.
+function updateCatMusic(dt) {
+  const on = catMiniGameMusicOn();
+  const target = on ? CAT_MUSIC_VOLUME : 0;
+
+  if (on && catMusic.paused) catMusic.play().catch(() => {});
+
+  const step = ((dt * 1000) / CAT_MUSIC_FADE_MS) * CAT_MUSIC_VOLUME;
+  if (catMusic.volume < target) catMusic.volume = Math.min(target, catMusic.volume + step);
+  else if (catMusic.volume > target) catMusic.volume = Math.max(target, catMusic.volume - step);
+
+  if (!on && !catMusic.paused && catMusic.volume === 0) {
+    catMusic.pause();
+    catMusic.currentTime = 0;
+  }
+}
+
 // Phases : 'walk' -> 'question' -> 'intro' -> 'play' -> 'win' -> 'exit'.
 let catPhase = 'walk';
 let catIntroStart = 0;

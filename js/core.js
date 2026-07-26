@@ -270,7 +270,9 @@ gameMusic.volume = 0;
 registerAudioForUnlock(gameMusic);
 
 function updateGameMusic(dt) {
-  const inGame = GAME_MUSIC_SCENES.includes(scene);
+  // Le mini-jeu des chats a SA musique (voir catgame.js) : la boucle des décors
+  // se tait pendant ce temps, et revient juste après.
+  const inGame = GAME_MUSIC_SCENES.includes(scene) && !catMiniGameMusicOn();
   const target = inGame ? GAME_MUSIC_VOLUME : 0;
 
   if (inGame && gameMusic.paused) gameMusic.play().catch(() => {});
@@ -516,8 +518,10 @@ function loop(timestamp, assets) {
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
-  // Musique de fond des décors 1 à 7 (pilotée par la scène courante).
+  // Musiques de fond (pilotées par la scène courante) : la boucle des décors
+  // 1 à 7, et celle du mini-jeu des chats qui la remplace le temps du jeu.
   updateGameMusic(dt);
+  updateCatMusic(dt);
 
   if (scene === 'premenu') {
     drawPreMenuScene(assets, dt);

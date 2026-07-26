@@ -87,6 +87,9 @@ function place3Reset() {
   place3Entered = false;
   place3Scratch = null;
   place3QuestionStart = null;
+  place3Help = false;
+  place3HelpNotified = false;
+  place3HelpVisible = false;
   place3TicketFallStart = performance.now();
   place3Coatings = [place3MakeCoating(), place3MakeCoating(), place3MakeCoating(), place3MakeCoating()];
   place3Lauren.x = PLACE3_LAUREN_START_X;
@@ -329,8 +332,78 @@ function place3Win() {
 }
 
 // ---------- Entrées souris ----------
+// ---------- Bouton « Aide » (au bout d'un moment sans avoir pris le ticket) ----------
+// Même principe qu'au décor 1 : si elle n'a toujours pas ramassé le ticket au
+// bout de 30 s, un bouton « Aide » apparaît en haut à droite et donne la marche
+// à suivre.
+const PLACE3_HELP_DELAY = 30000;
+const PLACE3_HELP_TEXT = 'Rapproche-toi du ticket et clique dessus.';
+let place3HelpNotified = false;
+let place3Help = false;        // panneau d'aide ouvert
+let place3HelpVisible = false; // bouton affiché (recalculé à chaque image)
+
+function place3HelpButtonRect() {
+  const w = Math.min(window.innerWidth * 0.15, 190);
+  const h = Math.max(34, window.innerHeight * 0.06);
+  return { x: window.innerWidth - w - window.innerWidth * 0.03, y: window.innerHeight * 0.04, w, h };
+}
+
+function drawPlace3HelpButton() {
+  const r = place3HelpButtonRect();
+  const hover = isInsideRect(pointerPos, r);
+  ctx.save();
+  ctx.fillStyle = place3Help ? 'rgba(255,215,106,0.9)' : (hover ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.5)');
+  roundRectPath(r.x, r.y, r.w, r.h, r.h * 0.25);
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  roundRectPath(r.x, r.y, r.w, r.h, r.h * 0.25);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = place3Help ? '#2a2a2a' : '#ffffff';
+  ctx.font = `${Math.round(r.h * 0.32)}px 'PressStart2P'`;
+  ctx.fillText('Aide', r.x + r.w / 2, r.y + r.h / 2 + 1);
+  ctx.restore();
+}
+
+function drawPlace3HelpPanel() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const btn = place3HelpButtonRect();
+  const boxW = Math.min(W * 0.74, 700);
+  const pad = boxW * 0.05;
+  const fs = Math.round(H * 0.026);
+  const lines = wrapTextAtFont(PLACE3_HELP_TEXT, boxW - pad * 2, fs);
+  const lineH = fs * 1.6;
+  const boxH = pad * 2 + lines.length * lineH;
+  const x = W / 2 - boxW / 2, y = btn.y + btn.h + H * 0.02;
+
+  ctx.save();
+  roundRectPath(x, y, boxW, boxH, boxH * 0.14);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.78)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 224, 138, 0.9)';
+  ctx.lineWidth = 2;
+  roundRectPath(x, y, boxW, boxH, boxH * 0.14);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffe08a';
+  ctx.font = `${fs}px 'PressStart2P'`;
+  let cy = y + pad + lineH / 2;
+  lines.forEach((l) => { ctx.fillText(l, W / 2, cy); cy += lineH; });
+  ctx.restore();
+}
+
 function handlePlace3Down(evt) {
   const pos = getPointerPos(evt);
+
+  // Bouton « Aide » (présent seulement au bout d'un moment).
+  if (place3HelpVisible && isInsideRect(pos, place3HelpButtonRect())) {
+    playClickSound();
+    place3Help = !place3Help;
+    return;
+  }
 
   // Cliquer le ticket au sol (une fois posé et Lauren proche) : ouvre la question.
   if (place3Phase === 'play' && place3TicketLanded() && laurenNearTicket()) {
@@ -340,6 +413,7 @@ function handlePlace3Down(evt) {
     const cy = containT.dy + PLACE3_TICKET_GROUND_Y * containT.scale;
     // Zone de clic généreuse (le ticket est petit) : environ la taille du halo.
     if (Math.abs(pos.x - cx) <= w * 1.3 && Math.abs(pos.y - cy) <= w * 1.1) {
+      place3Help = false; // elle a trouvé : l'aide n'a plus lieu d'être
       place3Phase = 'scratch';
       place3QuestionStart = performance.now();
     }
@@ -419,7 +493,8 @@ canvas.addEventListener('pointercancel', (evt) => { if (scene === 'place3') hand
 canvas.addEventListener('pointermove', (evt) => {
   if (scene !== 'place3') return;
   const pos = getPointerPos(evt);
-  let over = false;
+  let over = place3HelpVisible && isInsideRect(pos, place3HelpButtonRect());
+  if (over) { canvas.style.cursor = 'pointer'; return; }
   if (place3Phase === 'play' && place3TicketLanded() && laurenNearTicket()) {
     const containT = getPlace3ContainT(place3Assets);
     const w = PLACE3_TICKET_W * containT.scale;
@@ -448,6 +523,15 @@ function drawPlace3Scene(assets, elapsed, dt) {
   drawCharacter(place3Lauren, assets.laurenIdle, assets.laurenWalk, containT, assets.laurenPress, PLACE3_GROUND_Y);
 
   if (place3Phase === 'play' && place3TicketLanded()) drawKeyboardMoveHint();
+
+  // Bouton « Aide » : seulement si le ticket est posé et toujours pas ramassé
+  // au bout de PLACE3_HELP_DELAY (petite notif à son apparition).
+  place3HelpVisible = place3Phase === 'play' && place3TicketLanded() && elapsed >= PLACE3_HELP_DELAY;
+  if (place3HelpVisible) {
+    if (!place3HelpNotified) { place3HelpNotified = true; playNotifSound(); }
+    if (place3Help) drawPlace3HelpPanel();
+    drawPlace3HelpButton();
+  }
 
   if (place3Phase === 'scratch' || place3Phase === 'win' || place3Phase === 'exit') {
     drawPlace3Tickets(assets);

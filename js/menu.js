@@ -135,10 +135,10 @@ function easeOutBack(t) {
 }
 
 function drawTitle(img, elapsed) {
-  const targetW = window.innerWidth * 0.595;
+  const targetW = window.innerWidth * 0.66; // un peu plus grand (0.595 avant)
   const targetH = img.height * (targetW / img.width);
   const centerX = window.innerWidth / 2;
-  const baseY = window.innerHeight * 0.04 + targetH / 2;
+  const baseY = window.innerHeight * 0.075 + targetH / 2; // descendu (0.04 avant)
 
   if (elapsed < TITLE_DELAY) return; // rien à dessiner avant le délai
 
@@ -199,7 +199,9 @@ function drawStartButton(img, elapsed) {
   const w = Math.min(window.innerWidth * 0.58, 340) * uiSizeFactor();
   const h = w * BUTTON_ASPECT;
   const x = window.innerWidth / 2 - w / 2;
-  const y = window.innerHeight * 0.76 - h / 2;
+  // Descendu de 0.76 à 0.80 : le titre est plus grand et plus bas qu'avant, il
+  // faut garder de l'air entre les deux.
+  const y = window.innerHeight * 0.8 - h / 2;
   buttonRect = { x, y, w, h };
 
   const eased = easeOutBack(t);

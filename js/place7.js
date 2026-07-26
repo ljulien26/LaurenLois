@@ -25,7 +25,7 @@ const PLACE7_POLA_REACH = 110;
 const PLACE7_POLA_BOX = { cx: 476, bottom: 538, w: 669, h: 523 };
 // Petit message quand elle le ramasse, puis le puzzle apparaît.
 const PLACE7_POLA_LINE = 'Il reste une photo dedans... en morceaux !';
-const PLACE7_POLA_LINE_MS = 2200;
+const PLACE7_POLA_LINE_MS = 5200; // 3 s de plus : on a le temps de lire
 // Filet de sécurité si elle ne le trouve pas.
 const PLACE7_HINT_DELAY = 25000;
 

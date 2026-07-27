@@ -969,8 +969,9 @@ canvas.addEventListener('pointerdown', (evt) => {
     if (isInsideRect(pos, fwEndButtonRects().restart)) {
       playClickSound();
       // Reprise depuis le tout début : on recharge la page, c'est le seul
-      // moyen sûr de repartir d'un état complètement neuf.
-      setTimeout(() => location.reload(), 120);
+      // moyen sûr de repartir d'un état complètement neuf. On laisse au son du
+      // clic le temps d'être entendu : un rechargement coupe tout net.
+      setTimeout(() => location.reload(), 420);
     }
     return;
   }

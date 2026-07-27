@@ -31,9 +31,11 @@ const CAT_OBJ_REACH = 165;    // distance max (x) pour pouvoir cliquer
 const CAT_QUESTION = 'Qui des 2 est le plus un mimi kely ?';
 const CAT_ANSWERS = ['Lauren', 'Loïs'];
 const CAT_CORRECT = 0; // Lauren
-// Petite pique affichée si elle répond « Loïs » (mauvaise réponse).
-const CAT_WRONG_LINE = 'Espèce de petit chat';
-const CAT_WRONG_MS = 1800;
+// Petites piques affichées si elle répond « Loïs » (mauvaise réponse) : elles
+// montent d'un cran à chaque insistance, et à la troisième la réponse « Loïs »
+// disparaît pour de bon — il ne reste que la bonne.
+const CAT_WRONG_LINES = ['Espèce de petit chat', 'Tu es têtue !', 'Tu es punie !'];
+const CAT_WRONG_MS = 2600;
 
 // audio miaou (rattrapage)
 const catMeow = new Audio('Assets/Sound/Chat/Miaou.mp3');
@@ -94,7 +96,9 @@ let catQuestionStart = null;
 let catPicked = -1;
 let catPickedStart = 0;
 let catPickedCorrect = false;
-let catWrongUntil = 0; // fin de l'affichage de la pique
+let catWrongUntil = 0;  // fin de l'affichage de la pique
+let catWrongCount = 0;  // nombre de fois où elle a répondu « Loïs »
+let catWrongLine = '';  // pique en cours d'affichage
 
 const CAT_EXIT_FADE = 1200;
 const CAT_WIN_MS = 2800;
@@ -108,6 +112,8 @@ function catGameReset() {
   catQuestionStart = null;
   catPicked = -1;
   catWrongUntil = 0;
+  catWrongCount = 0;
+  catWrongLine = '';
   catLauren.x = CAT_LAUREN_START_X;
   catLauren.facing = 'right';
   catLauren.walking = false;
@@ -267,6 +273,12 @@ function catAnswerRects() {
   ];
 }
 
+// « Loïs » disparaît après la troisième insistance (« Tu es punie ! ») : il
+// n'est alors ni dessiné ni cliquable.
+function catAnswerHidden(i) {
+  return i !== CAT_CORRECT && catWrongCount >= CAT_WRONG_LINES.length;
+}
+
 function catAllTyped() {
   return questionTypingDone(catQuestionStart, CAT_QUESTION) &&
     answersTyping(catQuestionStart, CAT_QUESTION, CAT_ANSWERS).every((a) => a.full);
@@ -285,6 +297,7 @@ function drawCatQuestion(assets) {
   rects.forEach((r, i) => {
     if (!typing[i].visible) return;
     let img = assets.menuBouton;
+    if (catAnswerHidden(i)) return; // « Loïs » a été puni : il n'est plus là
     if (catPicked === i) img = catPickedCorrect ? assets.quizGood : assets.quizBad;
     drawTypedAnswerPill(img, CAT_ANSWERS[i], r, typing[i]);
   });
@@ -297,7 +310,7 @@ function drawCatQuestion(assets) {
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = '#ffd76a';
     ctx.font = `${Math.round(window.innerHeight * 0.034)}px 'PressStart2P'`;
-    ctx.fillText(CAT_WRONG_LINE, window.innerWidth / 2, window.innerHeight * 0.95);
+    ctx.fillText(catWrongLine, window.innerWidth / 2, window.innerHeight * 0.95);
     ctx.restore();
   }
 }
@@ -521,6 +534,7 @@ function handleCatDown(evt) {
     if (catPicked !== -1 || !catAllTyped()) return;
     const rects = catAnswerRects();
     for (let i = 0; i < rects.length; i++) {
+      if (catAnswerHidden(i)) continue;
       if (pointInRect(pos, rects[i])) {
         playClickSound();
         catPicked = i;
@@ -530,6 +544,8 @@ function handleCatDown(evt) {
           playCorrectSound();
         } else {
           playWrongSound();
+          catWrongCount++;
+          catWrongLine = CAT_WRONG_LINES[Math.min(catWrongCount, CAT_WRONG_LINES.length) - 1];
           catWrongUntil = performance.now() + CAT_WRONG_MS;
         }
         return;
@@ -554,7 +570,7 @@ canvas.addEventListener('pointermove', (evt) => {
   if (catPhase === 'walk' && laurenNearCatObj()) {
     over = pointInRect(pos, catBasketHitRect(getCatContainT()));
   } else if (catPhase === 'question' && catPicked === -1 && catAllTyped()) {
-    over = catAnswerRects().some((r) => pointInRect(pos, r));
+    over = catAnswerRects().some((r, i) => !catAnswerHidden(i) && pointInRect(pos, r));
   } else if (catPhase === 'lose') {
     over = pointInRect(pos, catRetryRect());
   }

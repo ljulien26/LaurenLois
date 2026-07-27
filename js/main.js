@@ -137,7 +137,11 @@
     Promise.all(photoPaths).then((finalPhotos) => {
       assets.finalPhotos = finalPhotos;
 
-      // Départ normal du jeu (voir `let scene = 'premenu'` dans core.js).
+      // --- DEBUG (à retirer) : on démarre directement sur l'écran final
+      // (décor 8). Départ normal : `scene = 'premenu'` dans core.js.
+      fireworksReset();
+      scene = 'fireworks';
+
       requestAnimationFrame((ts) => loop(ts, assets));
     });
   })

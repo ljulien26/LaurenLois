@@ -50,9 +50,9 @@ const FW_END_FADE = 8000;       // durée du long fondu au noir final
 // boutons apparaissent (recommencer / recevoir le lien).
 const FW_BUTTONS_AT = 12500;    // ms après le début de la phase 'end'
 const FW_BUTTONS_FADE = 900;    // apparition en fondu (et disparition du « Fin... »)
-// >>> À REMPLIR <<< adresse du mini-site où elle choisit une date : tant que
-// c'est vide, le bouton est affiché mais ne fait rien.
-const FW_DATE_LINK = '';
+// Mini-site où elle choisit une date à laquelle on se voit : ouvert dans un
+// nouvel onglet, après quoi le bouton disparaît.
+const FW_DATE_LINK = 'https://whimsical-jelly-cf75a7.netlify.app/';
 // Chronologie du spectacle (ms depuis le DÉPART DES FEUX).
 const FW_MSG_AT = 6000;         // apparition du message « Bon anniversaire »
 const FW_MSG_DUR = 7500;        // durée d'affichage du message

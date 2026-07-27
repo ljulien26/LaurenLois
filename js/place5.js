@@ -12,6 +12,15 @@
 const PLACE5_QUESTION = 'Combien de fois est-on allé au cinéma ensemble ?';
 const PLACE5_ANSWER = 35;
 const PLACE5_TOLERANCE = 2; // accepté de 33 à 37
+// Commentaire d'erreur selon l'écart avec la bonne réponse : elle sait ainsi
+// si elle brûle ou si elle est complètement à côté (le premier seuil qui
+// correspond gagne).
+const PLACE5_MISS_MESSAGES = [
+  { within: 5, text: 'Tout proche ! Réessaie' },
+  { within: 12, text: 'Pas loin... Réessaie' },
+  { within: Infinity, text: 'Très loin ! Réessaie' },
+];
+const PLACE5_MISS_MS = 1600; // durée d'affichage du commentaire
 
 const PLACE5_GROUND_Y = 515;
 const PLACE5_LAUREN_SCALE = 0.8;
@@ -42,6 +51,8 @@ let place5PopcornTaken = false; // le popcorn a été ramassé : plus de halo
 let place5Input = '';
 let place5QuestionStart = null;
 let place5WrongUntil = 0;
+let place5MissText = '';   // commentaire de la dernière erreur
+let place5Exact = false;   // elle a trouvé le chiffre pile
 let place5WinStart = 0;
 let place5ExitStart = 0;
 
@@ -55,6 +66,8 @@ function place5Reset() {
   place5Input = '';
   place5QuestionStart = null;
   place5WrongUntil = 0;
+  place5MissText = '';
+  place5Exact = false;
   place5PopcornTaken = false;
   place5HintNotified = false;
   place5Lauren.x = PLACE5_LAUREN_START_X;
@@ -282,7 +295,7 @@ function drawPlace5Question(assets) {
   if (performance.now() < place5WrongUntil) {
     ctx.fillStyle = '#ff8a80';
     ctx.font = `${Math.round(window.innerHeight * 0.03)}px 'PressStart2P'`;
-    ctx.fillText('Presque... réessaie', window.innerWidth / 2, window.innerHeight * 0.97);
+    ctx.fillText(place5MissText, window.innerWidth / 2, window.innerHeight * 0.97);
   } else {
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
     ctx.font = `${Math.round(window.innerHeight * 0.024)}px 'PressStart2P'`;
@@ -294,12 +307,17 @@ function drawPlace5Question(assets) {
 function place5Validate() {
   if (place5Input === '') return;
   const v = parseInt(place5Input, 10);
-  if (!isNaN(v) && Math.abs(v - PLACE5_ANSWER) <= PLACE5_TOLERANCE) {
+  const ecart = isNaN(v) ? Infinity : Math.abs(v - PLACE5_ANSWER);
+  if (ecart <= PLACE5_TOLERANCE) {
     place5Phase = 'win';
+    place5Exact = ecart === 0;
     place5WinStart = performance.now();
     playCorrectSound();
   } else {
-    place5WrongUntil = performance.now() + 1100;
+    // Le commentaire dépend de l'écart : « tout proche » n'a pas le même effet
+    // que « très loin » quand on cherche un nombre.
+    place5MissText = PLACE5_MISS_MESSAGES.find((m) => ecart <= m.within).text;
+    place5WrongUntil = performance.now() + PLACE5_MISS_MS;
     place5Input = '';
     playWrongSound();
   }
@@ -313,7 +331,7 @@ function place5Win() {
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#ffd76a';
   ctx.font = `${Math.round(window.innerHeight * 0.07)}px 'PressStart2P'`;
-  ctx.fillText('Bravo !', window.innerWidth / 2, window.innerHeight * 0.44);
+  ctx.fillText(place5Exact ? 'Pile poil !' : 'Bravo !', window.innerWidth / 2, window.innerHeight * 0.44);
   // La bonne réponse est validée à quelques unités près : on révèle le chiffre exact.
   ctx.fillStyle = '#ffffff';
   ctx.font = `${Math.round(window.innerHeight * 0.032)}px 'PressStart2P'`;

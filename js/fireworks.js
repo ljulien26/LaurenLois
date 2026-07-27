@@ -42,7 +42,7 @@ const FW_SUNSET_HOLD = 1000;
 const FW_NIGHT_AT = FW_DAY_HOLD + FW_FADE + FW_SUNSET_HOLD + FW_FADE;
 
 const FW_TAP_GOAL = 12;         // nb de tapotements pour déclencher
-const FW_FIRE_DELAY = 4800;     // ms de musique seule (léger) avant les feux
+const FW_FIRE_DELAY = 3800;     // ms de musique seule (léger) avant les feux
 const FW_END_DELAY = 3500;      // ms de feux après la dernière photo avant la fin
 const FW_FIN_HOLD = 2500;       // « Fin... » visible AVANT que le fondu ne commence
 const FW_END_FADE = 8000;       // durée du long fondu au noir final

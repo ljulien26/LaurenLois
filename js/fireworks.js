@@ -46,13 +46,12 @@ const FW_FIRE_DELAY = 2800;     // ms de musique seule (léger) avant les feux
 const FW_END_DELAY = 3500;      // ms de feux après la dernière photo avant la fin
 const FW_FIN_HOLD = 2500;       // « Fin... » visible AVANT que le fondu ne commence
 const FW_END_FADE = 8000;       // durée du long fondu au noir final
-// Écran tout noir de fin : une fois l'image ET la musique éteintes, deux
-// boutons apparaissent (recommencer / recevoir le lien).
+// Écran tout noir de fin : une fois l'image ET la musique éteintes, le QR code
+// apparaît (il ouvre le mini-site où elle choisit une date à laquelle on se
+// voit : https://whimsical-jelly-cf75a7.netlify.app/) avec « Recommencer ».
 const FW_BUTTONS_AT = 12500;    // ms après le début de la phase 'end'
 const FW_BUTTONS_FADE = 900;    // apparition en fondu (et disparition du « Fin... »)
-// Mini-site où elle choisit une date à laquelle on se voit : ouvert dans un
-// nouvel onglet, après quoi le bouton disparaît.
-const FW_DATE_LINK = 'https://whimsical-jelly-cf75a7.netlify.app/';
+const FW_QR_LINE = 'Scanne-moi avec ton téléphone';
 // Chronologie du spectacle (ms depuis le DÉPART DES FEUX).
 const FW_MSG_AT = 6000;         // apparition du message « Bon anniversaire »
 const FW_MSG_DUR = 7500;        // durée d'affichage du message
@@ -118,7 +117,6 @@ let fwTextStart = 0;      // instant (perf.now) où le message commence à se fo
 let fwTextTriggered = false;
 let fwTextDot = 3;        // taille (px écran) d'un point du message
 let fwEndStart = 0;
-let fwLinkUsed = false; // le lien a été ouvert : le bouton disparaît
 let fwAudioUnlocked = false;
 let fwSkipFadeIn = false; // vrai si l'écran d'attente a déjà affiché le décor
 let fwAssets = null;
@@ -345,7 +343,6 @@ function fireworksReset() {
   fwTextStart = 0;
   fwTextTriggered = false;
   fwEndStart = 0;
-  fwLinkUsed = false;
   try { fwMusic.pause(); fwMusic.currentTime = 0; fwMusic.volume = 0.5; } catch (e) {}
   try { fwFireSound.pause(); fwFireSound.currentTime = 0; fwFireSound.volume = FW_FIRE_VOLUME; } catch (e) {}
 }
@@ -777,21 +774,20 @@ function fwEndButtonsShown() {
   return fwPhase === 'end' && performance.now() - fwEndStart >= FW_BUTTONS_AT;
 }
 
-// Rectangles des boutons. Le bouton du lien disparaît une fois utilisé : il ne
-// reste alors que « Recommencer », recentré.
+// Le QR code, en grand et bien centré (fond blanc du PNG : c'est ce qui le
+// rend lisible sur le noir, et scannable).
+function fwQrRect() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const s = Math.min(H * 0.46, W * 0.34);
+  return { x: W / 2 - s / 2, y: H * 0.44 - s / 2, w: s, h: s };
+}
+
+// Un seul bouton, sous le QR code.
 function fwEndButtonRects() {
   const W = window.innerWidth, H = window.innerHeight;
   const w = Math.min(W * 0.62, 620);
   const h = Math.max(46, H * 0.085);
-  const both = !fwLinkUsed;
-  const gap = h * 0.45;
-  const cy = H * 0.52;
-  const x = W / 2 - w / 2;
-  if (!both) return { restart: { x, y: cy - h / 2, w, h }, link: null };
-  return {
-    restart: { x, y: cy - h - gap / 2, w, h },
-    link: { x, y: cy + gap / 2, w, h },
-  };
+  return { restart: { x: W / 2 - w / 2, y: H * 0.85 - h / 2, w, h } };
 }
 
 function fwDrawEndButton(r, label, alpha) {
@@ -818,19 +814,39 @@ function fwDrawEndButton(r, label, alpha) {
   ctx.restore();
 }
 
-// Le pointeur survole-t-il un des boutons de fin ? (curseur « main »)
+// Le pointeur survole-t-il le bouton de fin ? (curseur « main »)
 function fwEndButtonHovered() {
-  if (!fwEndButtonsShown()) return false;
-  const rects = fwEndButtonRects();
-  return isInsideRect(pointerPos, rects.restart) ||
-    !!(rects.link && isInsideRect(pointerPos, rects.link));
+  return fwEndButtonsShown() && isInsideRect(pointerPos, fwEndButtonRects().restart);
 }
 
-function fwDrawEndButtons(now) {
+// Écran noir final : le QR code à scanner + « Recommencer ».
+function fwDrawEndScreen(now, assets) {
+  const W = window.innerWidth, H = window.innerHeight;
   const a = Math.min(1, (now - fwEndStart - FW_BUTTONS_AT) / FW_BUTTONS_FADE);
-  const rects = fwEndButtonRects();
-  fwDrawEndButton(rects.restart, 'Recommencer', a);
-  if (rects.link) fwDrawEndButton(rects.link, 'Recevoir un lien sur mon téléphone', a);
+  const qr = fwQrRect();
+
+  ctx.save();
+  ctx.globalAlpha = a;
+
+  if (assets && assets.qrCode) {
+    // Petite marge blanche supplémentaire autour : un QR se lit d'autant mieux
+    // qu'il est isolé du fond sombre.
+    const m = qr.w * 0.04;
+    roundRectPath(qr.x - m, qr.y - m, qr.w + m * 2, qr.h + m * 2, qr.w * 0.05);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(assets.qrCode, qr.x, qr.y, qr.w, qr.h);
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillStyle = '#ffe08a';
+  ctx.font = `${Math.round(H * 0.026)}px 'PressStart2P'`;
+  ctx.fillText(FW_QR_LINE, W / 2, qr.y - H * 0.06);
+  ctx.restore();
+
+  fwDrawEndButton(fwEndButtonRects().restart, 'Recommencer', a);
 }
 
 // --- Rendu ---
@@ -938,8 +954,8 @@ function drawFireworksScene(assets, elapsed, dt) {
       ctx.restore();
     }
 
-    // Écran tout noir : « Recommencer » et le lien à recevoir sur son téléphone.
-    if (fwEndButtonsShown()) fwDrawEndButtons(t);
+    // Écran tout noir : le QR code à scanner + « Recommencer ».
+    if (fwEndButtonsShown()) fwDrawEndScreen(t, assets);
   }
 
   if (!fwSkipFadeIn) drawSceneFadeIn(elapsed, 600);
@@ -950,26 +966,14 @@ canvas.addEventListener('pointerdown', (evt) => {
   if (scene !== 'fireworks') return;
   const pos = getPointerPos(evt);
 
-  // Écran noir final : les deux boutons.
+  // Écran noir final : seul « Recommencer » est cliquable (le QR, lui, se
+  // scanne au téléphone).
   if (fwEndButtonsShown()) {
-    const rects = fwEndButtonRects();
-    if (isInsideRect(pos, rects.restart)) {
+    if (isInsideRect(pos, fwEndButtonRects().restart)) {
       playClickSound();
       // Reprise depuis le tout début : on recharge la page, c'est le seul
       // moyen sûr de repartir d'un état complètement neuf.
       setTimeout(() => location.reload(), 120);
-      return;
-    }
-    if (rects.link && isInsideRect(pos, rects.link)) {
-      playClickSound();
-      // Ouvre le mini-site dans un nouvel onglet, puis le bouton disparaît et
-      // il ne reste que « Recommencer ». Tant que FW_DATE_LINK est vide, le
-      // bouton est là mais ne fait rien (adresse pas encore fournie).
-      if (FW_DATE_LINK) {
-        window.open(FW_DATE_LINK, '_blank', 'noopener');
-        fwLinkUsed = true;
-      }
-      return;
     }
     return;
   }

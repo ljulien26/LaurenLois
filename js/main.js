@@ -80,6 +80,8 @@
   loadImage('Assets/Persos/TLL2.png'),
   loadImage('Assets/Persos/TLL3.png'),
   loadImage('Assets/Persos/TLL4.png'),
+  // QR code de l'écran tout noir de fin (mini-site « choisis une date »).
+  loadImage('Assets/QrCode/1.png'),
 ]))
   .then(([
     menuFond, menuTitre, nuagesImg, menuBouton,
@@ -101,6 +103,7 @@
     place8Day, place8Sunset, place8Night,
     place7Fond, puzzleImg, polaroidImg,
     laurenCalin, loisCalin, cll1, cll2, cll3, cll4, tll1, tll2, tll3, tll4,
+    qrCode,
   ]) => {
     createClouds(nuagesImg);
 
@@ -124,6 +127,7 @@
       laurenIdle, laurenCalin, loisCalin,
       cll: [cll1, cll2, cll3, cll4], // étreinte de l'écran final
       tll: [tll1, tll2, tll3, tll4], // ...puis ils regardent le feu, de dos
+      qrCode, // écran de fin : à scanner pour ouvrir le mini-site sur son téléphone
       laurenWalk: [laurenWalk6, laurenWalk7, laurenWalk9, laurenWalk10, laurenWalk11],
       laurenPress: [laurenPress1, laurenPress2],
       loisIdle,

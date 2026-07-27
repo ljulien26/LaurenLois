@@ -182,22 +182,6 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => heldKeys.delete(e.key.toLowerCase()));
 
-// --- DEBUG (à retirer pour la version finale) : Maj+3/4/5/6 sautent
-// directement à Saint-Sernin / Cinéma façade / Cinéma intérieur / pluie de
-// chats, pour tester vite. ---
-window.addEventListener('keydown', (e) => {
-  if (!e.shiftKey) return;
-  // Sur clavier AZERTY, les chiffres se tapent avec Maj : on ne déclenche donc
-  // PAS ces sauts quand la joueuse est en train de saisir son nombre au cinéma.
-  if (scene === 'place5' && place5Phase === 'question') return;
-  if (['Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7'].includes(e.code)) setKeyboardTyping(false);
-  if (e.code === 'Digit3') { place3Reset(); scene = 'place3'; startTime = null; }
-  else if (e.code === 'Digit4') { place4Reset(); scene = 'place4'; startTime = null; }
-  else if (e.code === 'Digit5') { place5Reset(); scene = 'place5'; startTime = null; }
-  else if (e.code === 'Digit6') { catGameReset(); scene = 'catgame'; startTime = null; }
-  else if (e.code === 'Digit7') { place7Reset(); scene = 'place7'; startTime = null; }
-});
-
 // Indice discret rappelant que le déplacement se fait au clavier. Affiché en
 // bas de l'écran tant que le joueur contrôle un personnage. S'estompe dès
 // qu'une touche de direction est enfoncée (le joueur a compris).

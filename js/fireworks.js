@@ -51,7 +51,6 @@ const FW_END_FADE = 8000;       // durée du long fondu au noir final
 // voit : https://whimsical-jelly-cf75a7.netlify.app/) avec « Recommencer ».
 const FW_BUTTONS_AT = 12500;    // ms après le début de la phase 'end'
 const FW_BUTTONS_FADE = 900;    // apparition en fondu (et disparition du « Fin... »)
-const FW_QR_LINE = 'Scanne-moi avec ton téléphone';
 // Chronologie du spectacle (ms depuis le DÉPART DES FEUX).
 const FW_MSG_AT = 6000;         // apparition du message « Bon anniversaire »
 const FW_MSG_DUR = 7500;        // durée d'affichage du message
@@ -839,11 +838,6 @@ function fwDrawEndScreen(now, assets) {
     ctx.drawImage(assets.qrCode, qr.x, qr.y, qr.w, qr.h);
   }
 
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'bottom';
-  ctx.fillStyle = '#ffe08a';
-  ctx.font = `${Math.round(H * 0.026)}px 'PressStart2P'`;
-  ctx.fillText(FW_QR_LINE, W / 2, qr.y - H * 0.06);
   ctx.restore();
 
   fwDrawEndButton(fwEndButtonRects().restart, 'Recommencer', a);

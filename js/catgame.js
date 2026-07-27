@@ -31,6 +31,9 @@ const CAT_OBJ_REACH = 165;    // distance max (x) pour pouvoir cliquer
 const CAT_QUESTION = 'Qui des 2 est le plus un mimi kely ?';
 const CAT_ANSWERS = ['Lauren', 'Loïs'];
 const CAT_CORRECT = 0; // Lauren
+// Petite pique affichée si elle répond « Loïs » (mauvaise réponse).
+const CAT_WRONG_LINE = 'Espèce de petit chat';
+const CAT_WRONG_MS = 1800;
 
 // audio miaou (rattrapage)
 const catMeow = new Audio('Assets/Sound/Chat/Miaou.mp3');
@@ -91,6 +94,7 @@ let catQuestionStart = null;
 let catPicked = -1;
 let catPickedStart = 0;
 let catPickedCorrect = false;
+let catWrongUntil = 0; // fin de l'affichage de la pique
 
 const CAT_EXIT_FADE = 1200;
 const CAT_WIN_MS = 2800;
@@ -103,6 +107,7 @@ function catGameReset() {
   catPhase = 'walk';
   catQuestionStart = null;
   catPicked = -1;
+  catWrongUntil = 0;
   catLauren.x = CAT_LAUREN_START_X;
   catLauren.facing = 'right';
   catLauren.walking = false;
@@ -284,6 +289,17 @@ function drawCatQuestion(assets) {
     drawTypedAnswerPill(img, CAT_ANSWERS[i], r, typing[i]);
   });
   setKeyboardTyping(!typing.every((a) => a.full));
+
+  // Mauvaise réponse (« Loïs ») : petite pique, le temps de la lire.
+  if (performance.now() < catWrongUntil) {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = '#ffd76a';
+    ctx.font = `${Math.round(window.innerHeight * 0.034)}px 'PressStart2P'`;
+    ctx.fillText(CAT_WRONG_LINE, window.innerWidth / 2, window.innerHeight * 0.95);
+    ctx.restore();
+  }
 }
 
 function updateCatAnswer() {
@@ -510,7 +526,12 @@ function handleCatDown(evt) {
         catPicked = i;
         catPickedStart = performance.now();
         catPickedCorrect = i === CAT_CORRECT;
-        if (catPickedCorrect) playCorrectSound(); else playWrongSound();
+        if (catPickedCorrect) {
+          playCorrectSound();
+        } else {
+          playWrongSound();
+          catWrongUntil = performance.now() + CAT_WRONG_MS;
+        }
         return;
       }
     }

@@ -17,18 +17,64 @@
 <link rel="icon" type="image/png" href="icon-192.png">
 
 <link rel="stylesheet" href="css/style.css">
+
+<script>
+  // ---------- Jeu réservé à l'ordinateur ----------
+  // Lauren se déplace aux FLÈCHES DU CLAVIER : le jeu est injouable sur
+  // téléphone ou tablette. On détecte donc l'appareil AVANT tout chargement
+  // (aucun décor ni musique n'est téléchargé) et on affiche un écran
+  // d'explication à la place. Rien de tout ceci ne change quoi que ce soit sur
+  // ordinateur : la détection y est fausse et le jeu se lance normalement.
+  (function () {
+    var ua = navigator.userAgent || '';
+    var uaData = navigator.userAgentData;
+    // 1) L'indicateur officiel du navigateur quand il existe (Chrome/Edge)…
+    var mobile = uaData && typeof uaData.mobile === 'boolean'
+      ? uaData.mobile
+      : /Android|iPhone|iPad|iPod|IEMobile|Opera Mini|Mobile|Tablet|Silk/i.test(ua);
+    // 2) …sinon (et en plus) : un appareil dont le pointeur PRINCIPAL est un
+    // doigt et qui n'a pas de survol est un tactile. C'est ce qui rattrape
+    // l'iPad récent, qui se fait passer pour un Mac dans Safari. Un PC tactile
+    // utilisé avec sa souris a, lui, un pointeur "fin" : il n'est pas bloqué.
+    var tactile = !!(window.matchMedia &&
+      window.matchMedia('(pointer: coarse) and (hover: none)').matches);
+    // Soupape de secours (invisible) au cas où un ordinateur serait détecté à
+    // tort : ouvrir la page avec ?pc=1 force le jeu.
+    var forcePc = /[?&]pc=1(&|$)/.test(location.search);
+
+    window.MOBILE_BLOCKED = !forcePc && (mobile || tactile);
+    if (window.MOBILE_BLOCKED) document.documentElement.classList.add('desktop-only');
+  })();
+</script>
 </head>
 <body>
 
 <canvas id="game"></canvas>
 <div id="rotate-overlay">Tourne ton téléphone pour jouer 🔄</div>
 
+<!-- Affiché À LA PLACE du jeu sur téléphone / tablette (voir le script du head). -->
+<div id="desktop-only">
+  <h1>Ce jeu se joue<br>sur ordinateur</h1>
+  <p>Lauren se déplace avec les <strong>flèches du clavier</strong> :
+     il est impossible d'y jouer sur téléphone.</p>
+  <p class="lien">Ouvre cette page sur un ordinateur&nbsp;💻<br>
+     <span>ljulien26.github.io/LaurenLois</span></p>
+</div>
+
 <script>
   // Enregistre le service worker (fonctionnement hors-ligne + appli installable).
-  if ('serviceWorker' in navigator) {
+  // Inutile sur téléphone, où le jeu ne se lance pas : on évite de mettre en
+  // cache tous les assets pour rien.
+  if ('serviceWorker' in navigator && !window.MOBILE_BLOCKED) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     });
+  } else if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+    // Téléphone : si une ancienne version avait été mise en cache, on la
+    // désinstalle, sinon elle continuerait de servir le jeu hors-ligne.
+    navigator.serviceWorker.getRegistrations()
+      .then((regs) => regs.forEach((r) => r.unregister()))
+      .catch(() => {});
   }
 </script>
 

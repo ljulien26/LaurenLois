@@ -34,6 +34,57 @@ html, body {
   touch-action: none;
 }
 
+/* ---------- Écran « ordinateur seulement » (téléphone / tablette) ----------
+   Affiché à la place du jeu, quelle que soit l'orientation. La classe est
+   posée sur <html> par le script de détection, avant tout chargement. */
+#desktop-only {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.6rem;
+  text-align: center;
+  padding: 2rem 1.6rem;
+  background: #0b0b12;
+  color: #ffffff;
+}
+
+#desktop-only h1 {
+  font-family: 'PressStart2P', 'Courier New', monospace;
+  font-size: clamp(1rem, 5.2vw, 1.6rem);
+  line-height: 1.7;
+  color: #ffd76a;
+}
+
+#desktop-only p {
+  font-family: 'Courier New', monospace;
+  font-size: clamp(0.95rem, 4.2vw, 1.2rem);
+  line-height: 1.6;
+  max-width: 32rem;
+}
+
+#desktop-only strong { color: #ffd76a; }
+
+#desktop-only .lien span {
+  display: inline-block;
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.8rem;
+  border: 2px solid rgba(255, 215, 106, 0.7);
+  border-radius: 0.5rem;
+  font-size: clamp(0.85rem, 3.6vw, 1rem);
+  color: #ffd76a;
+  /* Le lien reste sélectionnable pour pouvoir se l'envoyer sur son PC. */
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+html.desktop-only #desktop-only { display: flex; }
+html.desktop-only #game,
+html.desktop-only #rotate-overlay { display: none !important; }
+
 #rotate-overlay {
   display: none;
   position: fixed;

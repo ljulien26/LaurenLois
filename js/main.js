@@ -1,6 +1,10 @@
 // ---------- Chargement des assets et démarrage ----------
 
-Promise.all([
+// Sur téléphone/tablette, index.html a déjà affiché l'écran « ordinateur
+// seulement » : la promesse ci-dessous ne se résout jamais, et surtout la
+// liste des loadImage n'est même pas évaluée — on ne télécharge donc AUCUN
+// décor ni musique pour rien.
+(window.MOBILE_BLOCKED ? new Promise(() => {}) : Promise.all([
   loadImage('Assets/Menu/Fond.png'),
   loadImage('Assets/Menu/Titre.png'),
   loadImage('Assets/Menu/Nuages.png'),
@@ -76,7 +80,7 @@ Promise.all([
   loadImage('Assets/Persos/TLL2.png'),
   loadImage('Assets/Persos/TLL3.png'),
   loadImage('Assets/Persos/TLL4.png'),
-])
+]))
   .then(([
     menuFond, menuTitre, nuagesImg, menuBouton,
     preMenuFond,

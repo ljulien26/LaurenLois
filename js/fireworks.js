@@ -53,9 +53,13 @@ const FW_MSG_BURST_GAP = 120;   // ms entre deux fusées qui construisent le tex
 const FW_PHOTOS_START = FW_MSG_AT + FW_MSG_DUR; // photos après le message
 const FW_PHOTO_SPAWN = 5200;    // ms entre deux photos (bien espacées)
 // Zones d'apparition des photos (centres en fractions d'écran), parcourues en
-// cycle pour bien répartir les photos dans l'espace.
+// cycle pour bien répartir les photos dans l'espace. Elles naissent TOUJOURS
+// dans la moitié basse (ou au milieu) puis remontent lentement : une photo qui
+// apparaîtrait déjà en haut sortirait de l'écran presque aussitôt. Les zones
+// les plus basses sont sur les côtés, pour ne pas recouvrir le couple qui
+// regarde le feu, au centre en bas.
 const FW_PHOTO_ZONES = [
-  [0.24, 0.34], [0.74, 0.32], [0.50, 0.52], [0.28, 0.66], [0.72, 0.64], [0.50, 0.30],
+  [0.22, 0.70], [0.78, 0.68], [0.50, 0.56], [0.30, 0.66], [0.70, 0.72], [0.50, 0.60],
 ];
 
 // Musique du générique (l'autre que le menu) + ambiance des feux : les deux en

@@ -18,7 +18,7 @@ Tout est pensé dans un espace **design 960×540**. `getContainTransform(imgW,im
 ## Machine à scènes (variable globale `scene`)
 `premenu → tvOn → blackout → menu → place → place2 → place3 → place4 → place5 → catgame → place7 → fireworks`
 Départ normal : `let scene = 'premenu'` (core.js). Chaque scène a sa fonction `drawXScene` dans son fichier.
-⚠️ **Actuellement forcé sur `fireworks` en DEBUG dans main.js** (bloc « démarrer directement sur… » à retirer pour repartir de `premenu`).
+Le jeu démarre bien **au tout début** (`premenu`) : plus aucun forçage de scène dans main.js.
 
 | Scène | Fichier | Lieu / contenu |
 |---|---|---|
@@ -68,7 +68,7 @@ Convention : commentaires **en français**, style/idiome du code environnant, po
 Pour valider une **mise en page/position** statique, composer une image de contrôle via **.NET System.Drawing en PowerShell** (charger le PNG, dessiner/composer, sauver dans le scratchpad, puis `Read` l'image). Ex. déjà fait : cadrage de la tête du chat dans le panier, étoiles de place5, molettes du cadenas.
 
 ## Divers
-- **DEBUG (à retirer pour la version finale)** : **Maj+3/4/5/6/7** sautent à place3/place4/place5/catgame/place7 (désactivé pendant la saisie du nombre en place5, car sur AZERTY les chiffres se tapent avec Maj). **main.js force le démarrage sur `fireworks`** (bloc DEBUG) — à retirer pour repartir de `premenu`.
+- **DEBUG (à retirer pour la version finale)** : **Maj+3/4/5/6/7** sautent à place3/place4/place5/catgame/place7 (désactivé pendant la saisie du nombre en place5, car sur AZERTY les chiffres se tapent avec Maj). Le **démarrage forcé de main.js a été retiré** : le jeu repart toujours de `premenu`.
 - Le jeu est **desktop-only, et c'est désormais imposé** : un script en tête d'`index.html` détecte téléphone/tablette (`navigator.userAgentData.mobile`, sinon UA, **plus** `(pointer: coarse) and (hover: none)` pour attraper l'iPad qui se dit Mac) et pose la classe `desktop-only` sur `<html>` → le canvas est masqué, l'écran « **Ce jeu se joue sur ordinateur** » (`#desktop-only`) s'affiche, **aucun asset n'est chargé** (main.js n'évalue même pas la liste des `loadImage`), le service worker n'est pas enregistré et un ancien est désinstallé. Soupape invisible : ouvrir avec **`?pc=1`** force le jeu. Sur ordinateur, rien ne change.
 - Flux complet OK : `place → place2 → place3 → place4 → place5 → catgame → place7 → fireworks` (transition catgame→place7 ajoutée ; l'ancien écran « À suivre… » est retiré).
 - **TODO** : retirer les raccourcis DEBUG Maj+3…7 et le démarrage forcé pour la version cadeau finale.

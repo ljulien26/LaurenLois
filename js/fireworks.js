@@ -906,9 +906,6 @@ function drawFireworksScene(assets, elapsed, dt) {
     ctx.globalAlpha = pulse; ctx.fillStyle = '#ffffff';
     ctx.font = `${Math.round(H * 0.045)}px 'PressStart2P'`;
     ctx.fillText('Clic, clic, clic !', W / 2, H * 0.42);
-    ctx.globalAlpha = 0.9; ctx.fillStyle = '#ffd76a';
-    ctx.font = `${Math.round(H * 0.024)}px 'PressStart2P'`;
-    ctx.fillText('pour déclencher le feu d’artifice', W / 2, H * 0.42 + H * 0.06);
     const bw = Math.min(W * 0.5, 420 * uiSizeFactor());
     const bh = Math.max(10, H * 0.028);
     const bx = W / 2 - bw / 2, by = H * 0.6;

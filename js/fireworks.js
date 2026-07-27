@@ -42,10 +42,17 @@ const FW_SUNSET_HOLD = 1000;
 const FW_NIGHT_AT = FW_DAY_HOLD + FW_FADE + FW_SUNSET_HOLD + FW_FADE;
 
 const FW_TAP_GOAL = 12;         // nb de tapotements pour déclencher
-const FW_FIRE_DELAY = 3800;     // ms de musique seule (léger) avant les feux
+const FW_FIRE_DELAY = 2800;     // ms de musique seule (léger) avant les feux
 const FW_END_DELAY = 3500;      // ms de feux après la dernière photo avant la fin
 const FW_FIN_HOLD = 2500;       // « Fin... » visible AVANT que le fondu ne commence
 const FW_END_FADE = 8000;       // durée du long fondu au noir final
+// Écran tout noir de fin : une fois l'image ET la musique éteintes, deux
+// boutons apparaissent (recommencer / recevoir le lien).
+const FW_BUTTONS_AT = 12500;    // ms après le début de la phase 'end'
+const FW_BUTTONS_FADE = 900;    // apparition en fondu (et disparition du « Fin... »)
+// >>> À REMPLIR <<< adresse du mini-site où elle choisit une date : tant que
+// c'est vide, le bouton est affiché mais ne fait rien.
+const FW_DATE_LINK = '';
 // Chronologie du spectacle (ms depuis le DÉPART DES FEUX).
 const FW_MSG_AT = 6000;         // apparition du message « Bon anniversaire »
 const FW_MSG_DUR = 7500;        // durée d'affichage du message
@@ -111,6 +118,7 @@ let fwTextStart = 0;      // instant (perf.now) où le message commence à se fo
 let fwTextTriggered = false;
 let fwTextDot = 3;        // taille (px écran) d'un point du message
 let fwEndStart = 0;
+let fwLinkUsed = false; // le lien a été ouvert : le bouton disparaît
 let fwAudioUnlocked = false;
 let fwSkipFadeIn = false; // vrai si l'écran d'attente a déjà affiché le décor
 let fwAssets = null;
@@ -337,6 +345,7 @@ function fireworksReset() {
   fwTextStart = 0;
   fwTextTriggered = false;
   fwEndStart = 0;
+  fwLinkUsed = false;
   try { fwMusic.pause(); fwMusic.currentTime = 0; fwMusic.volume = 0.5; } catch (e) {}
   try { fwFireSound.pause(); fwFireSound.currentTime = 0; fwFireSound.volume = FW_FIRE_VOLUME; } catch (e) {}
 }
@@ -663,9 +672,11 @@ function updateFireworks(dt, elapsed) {
         }
       }
     }
-  } else if (fwPhase === 'end' && fwFireStarted) {
+  } else if (fwPhase === 'end' && fwFireStarted &&
+             now - fwEndStart < FW_FIN_HOLD + FW_END_FADE) {
     // Le spectacle ne s'arrête pas net : les feux continuent de partir pendant
-    // tout le fondu final (leur bruit, lui, baisse avec l'image).
+    // tout le fondu final (leur bruit, lui, baisse avec l'image). Une fois
+    // l'écran complètement noir, inutile d'en lancer d'autres.
     fwAutoVolley(dt);
   }
 
@@ -760,13 +771,75 @@ function fwDrawWaitForAudio(assets) {
   fwSkipFadeIn = true;   // le décor est déjà à l'écran : pas de fondu au noir
 }
 
+// ---------- Écran noir final : les deux boutons ----------
+// Ils n'apparaissent qu'une fois l'image ET la musique éteintes.
+function fwEndButtonsShown() {
+  return fwPhase === 'end' && performance.now() - fwEndStart >= FW_BUTTONS_AT;
+}
+
+// Rectangles des boutons. Le bouton du lien disparaît une fois utilisé : il ne
+// reste alors que « Recommencer », recentré.
+function fwEndButtonRects() {
+  const W = window.innerWidth, H = window.innerHeight;
+  const w = Math.min(W * 0.62, 620);
+  const h = Math.max(46, H * 0.085);
+  const both = !fwLinkUsed;
+  const gap = h * 0.45;
+  const cy = H * 0.52;
+  const x = W / 2 - w / 2;
+  if (!both) return { restart: { x, y: cy - h / 2, w, h }, link: null };
+  return {
+    restart: { x, y: cy - h - gap / 2, w, h },
+    link: { x, y: cy + gap / 2, w, h },
+  };
+}
+
+function fwDrawEndButton(r, label, alpha) {
+  const hover = isInsideRect(pointerPos, r);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  roundRectPath(r.x, r.y, r.w, r.h, r.h * 0.28);
+  ctx.fillStyle = hover ? 'rgba(255,215,106,0.92)' : 'rgba(0,0,0,0.55)';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(255,215,106,0.9)';
+  roundRectPath(r.x, r.y, r.w, r.h, r.h * 0.28);
+  ctx.stroke();
+  // La police se réduit seulement si le libellé ne tient pas dans le bouton.
+  let fs = Math.round(window.innerHeight * 0.028);
+  ctx.font = `${fs}px 'PressStart2P'`;
+  const maxW = r.w * 0.86;
+  const tw = ctx.measureText(label).width;
+  if (tw > maxW) { fs *= maxW / tw; ctx.font = `${fs}px 'PressStart2P'`; }
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = hover ? '#2a1a06' : '#ffe08a';
+  ctx.fillText(label, r.x + r.w / 2, r.y + r.h / 2 + 1);
+  ctx.restore();
+}
+
+// Le pointeur survole-t-il un des boutons de fin ? (curseur « main »)
+function fwEndButtonHovered() {
+  if (!fwEndButtonsShown()) return false;
+  const rects = fwEndButtonRects();
+  return isInsideRect(pointerPos, rects.restart) ||
+    !!(rects.link && isInsideRect(pointerPos, rects.link));
+}
+
+function fwDrawEndButtons(now) {
+  const a = Math.min(1, (now - fwEndStart - FW_BUTTONS_AT) / FW_BUTTONS_FADE);
+  const rects = fwEndButtonRects();
+  fwDrawEndButton(rects.restart, 'Recommencer', a);
+  if (rects.link) fwDrawEndButton(rects.link, 'Recevoir un lien sur mon téléphone', a);
+}
+
 // --- Rendu ---
 function drawFireworksScene(assets, elapsed, dt) {
   fwAssets = assets;
   if (fwPhase === 'arrivee' && !audioUnlocked) { fwDrawWaitForAudio(assets); return; }
   updateFireworks(dt, elapsed);
   const W = window.innerWidth, H = window.innerHeight, t = performance.now(), S = fwScale();
-  canvas.style.cursor = fwPhase === 'charge' ? 'pointer' : 'default';
+  canvas.style.cursor = (fwPhase === 'charge' || fwEndButtonHovered()) ? 'pointer' : 'default';
 
   fwDrawBackground(assets, elapsed);
 
@@ -852,14 +925,21 @@ function drawFireworksScene(assets, elapsed, dt) {
       if (mk >= 1 && !fwMusic.paused) fwMusic.pause();
     }
 
-    // « Fin... » par-dessus (fondu d'entrée), reste visible pendant tout le fondu.
-    ctx.save();
-    ctx.globalAlpha = Math.min(1, e / 900);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `${Math.round(H * 0.06)}px 'PressStart2P'`;
-    ctx.fillText('Fin...', W / 2, H / 2);
-    ctx.restore();
+    // « Fin... » par-dessus (fondu d'entrée), visible pendant tout le fondu,
+    // puis il s'efface pour laisser la place aux deux boutons.
+    const finOut = Math.max(0, Math.min(1, (e - FW_BUTTONS_AT) / FW_BUTTONS_FADE));
+    if (finOut < 1) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, e / 900) * (1 - finOut);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `${Math.round(H * 0.06)}px 'PressStart2P'`;
+      ctx.fillText('Fin...', W / 2, H / 2);
+      ctx.restore();
+    }
+
+    // Écran tout noir : « Recommencer » et le lien à recevoir sur son téléphone.
+    if (fwEndButtonsShown()) fwDrawEndButtons(t);
   }
 
   if (!fwSkipFadeIn) drawSceneFadeIn(elapsed, 600);
@@ -868,11 +948,38 @@ function drawFireworksScene(assets, elapsed, dt) {
 // --- Entrées ---
 canvas.addEventListener('pointerdown', (evt) => {
   if (scene !== 'fireworks') return;
-  const x = getPointerPos(evt).x;
+  const pos = getPointerPos(evt);
+
+  // Écran noir final : les deux boutons.
+  if (fwEndButtonsShown()) {
+    const rects = fwEndButtonRects();
+    if (isInsideRect(pos, rects.restart)) {
+      playClickSound();
+      // Reprise depuis le tout début : on recharge la page, c'est le seul
+      // moyen sûr de repartir d'un état complètement neuf.
+      setTimeout(() => location.reload(), 120);
+      return;
+    }
+    if (rects.link && isInsideRect(pos, rects.link)) {
+      playClickSound();
+      // Ouvre le mini-site dans un nouvel onglet, puis le bouton disparaît et
+      // il ne reste que « Recommencer ». Tant que FW_DATE_LINK est vide, le
+      // bouton est là mais ne fait rien (adresse pas encore fournie).
+      if (FW_DATE_LINK) {
+        window.open(FW_DATE_LINK, '_blank', 'noopener');
+        fwLinkUsed = true;
+      }
+      return;
+    }
+    return;
+  }
+
+  const x = pos.x;
   if (fwPhase === 'charge') { fwPlayClick(); fwTapCharge(x); } // clic synchro au tap
   else if (fwPhase === 'show') fwSpawnRocket({ x, type: 'sphere' }); // pas de son ici
   if (!fwAudioUnlocked) { unlockAudio(); fwAudioUnlocked = true; }
 });
+
 window.addEventListener('keydown', (e) => {
   if (scene !== 'fireworks') return;
   if (e.code === 'Space' || e.code === 'Enter') {
